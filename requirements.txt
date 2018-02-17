@@ -1,0 +1,5 @@
+scipy
+click
+matplotlib
+numpy
+numpy-stl
