@@ -114,7 +114,7 @@ class TestPySS(unittest.TestCase):
 
         cwd = os.getcwd().split(sep='/')[-1]
         if cwd == 'PySS':
-            datapath = './test_data/'
+            datapath = './tests/test_data/'
         elif cwd == 'tests':
             datapath = './test_data/'
         else:
