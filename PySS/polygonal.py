@@ -978,7 +978,7 @@ def main(
          ):
 
     if directory is None:
-        directory = os.getcwd()
+        directory = os.getcwd() + '/data/'
 
     if export is True:
         export= directory + 'polygonal.pkl'
@@ -1013,7 +1013,7 @@ def main(
     if add_experimental_data:
         for i in range(9):
             print('Adding experimental data to specimen number {}'.format(i + 1))
-            cases[i].add_experiment('data/sp{}/experiment/sp{}.asc'.format(i + 1, i + 1))
+            cases[i].add_experiment(directory + 'sp{}/experiment/sp{}.asc'.format(i + 1, i + 1))
 
         # Correction of stroke tare value on some measurements.
         cases[1].experiment_data.offset_stroke()

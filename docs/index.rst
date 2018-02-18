@@ -8,11 +8,10 @@ Welcome to PySS's documentation!
    readme
    installation
    usage
-   modules
+   code
+   history
    contributing
    authors
-   history
-   code
 
 Indices and tables
 ==================

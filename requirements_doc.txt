@@ -1,0 +1,4 @@
+scipy
+numpydoc
+matplotlib
+numpy-stl
