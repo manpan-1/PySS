@@ -126,7 +126,7 @@ class PolygonalColumn:
         # Add a center line for the specimen.
         # TODO: add real centreline from file.
         print('Adding centre-line from pickle.')
-        specimen.centre_line_from_pickle('./' + path + 'centreline.pkl')
+        specimen.centre_line_from_pickle(path + 'centreline.pkl')
 
         # Add all sides and edges.
         # they consist of FlatFace and RoundedEdge instances.
@@ -969,6 +969,7 @@ def semi_closed_polygon(n_sides, radius, t, tg, rbend, nbend, l_lip):
 
 
 def main(
+         directory=None,
          add_real_specimens=True,
          add_experimental_data=True,
          make_plots=True,
@@ -976,8 +977,11 @@ def main(
          print_reports=True
          ):
 
+    if directory is None:
+        directory = os.getcwd()
+
     if export is True:
-        export='./data/polygonal.pkl'
+        export= directory + 'polygonal.pkl'
 
     # Create a polygonal column object.
     length = 700.
@@ -1002,7 +1006,8 @@ def main(
     if add_real_specimens:
         for i in range(9):
             print('Adding real scanned shape to specimen number {}'.format(i + 1))
-            cases[i].add_real_specimen('data/sp{}/'.format(i + 1))
+            print(directory + 'sp{}/'.format(i + 1))
+            cases[i].add_real_specimen(directory + 'sp{}/'.format(i + 1))
 
     print('Adding experimental data from the compression tests.')
     if add_experimental_data:
