@@ -1,3 +1,24 @@
+# # Minimal makefile for Sphinx documentation
+# #
+# 
+# # You can set these variables from the command line.
+# SPHINXOPTS    =
+# SPHINXBUILD   = python -msphinx
+# SPHINXPROJ    = PySS
+# SOURCEDIR     = .
+# BUILDDIR      = _build
+# 
+# # Put it first so that "make" without argument is like "make help".
+# help:
+# 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+# 
+# .PHONY: help Makefile
+# 
+# # Catch-all target: route all unknown targets to Sphinx using the new
+# # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
+# %: Makefile
+# 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
 # Makefile for Sphinx documentation
 #
 
@@ -85,17 +106,17 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/PySS.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/steel_toolbox.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/PySS.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/steel_toolbox.qhc"
 
 devhelp:
 	$(SPHINXBUILD) -b devhelp $(ALLSPHINXOPTS) $(BUILDDIR)/devhelp
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/PySS"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/PySS"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/steel_toolbox"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/steel_toolbox"
 	@echo "# devhelp"
 
 epub:

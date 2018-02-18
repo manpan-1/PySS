@@ -25,9 +25,8 @@ test_requirements = [
 
 setup(
     name='PySS',
-    version='0.5.0',
-    description="Python package for Steel Structures."
-                "A collection of classes and tools used on structural steel research and design.",
+    version='0.5',
+    description="Python package for steel structures.",
     long_description=readme + '\n\n' + history,
     author="Panagiotis Manoleas",
     author_email='manpan@ltu.se',
@@ -35,8 +34,8 @@ setup(
     packages=find_packages(include=['PySS']),
     entry_points={
         'console_scripts': [
-            'PySS=PySS.cli:main'
-        ]
+            'PySS=PySS.cli:main',
+        ],
     },
     include_package_data=True,
     install_requires=requirements,

@@ -1,6 +1,6 @@
-=========================================
-PySS: Python package for Structural Steel
-=========================================
+====
+PySS
+====
 
 
 .. image:: https://img.shields.io/pypi/v/PySS.svg
@@ -13,12 +13,12 @@ PySS: Python package for Structural Steel
         :target: https://PySS.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
-.. image:: https://pyup.io/repos/github/manpan-1/PySS/shield.svg
-     :target: https://pyup.io/repos/github/manpan-1/PySS/
-     :alt: Updates
 
 
+
+Python package for steel structures.
 A collection of classes and tools useful to design and perform research on steel structures.
+
 
 
 * Free software: MIT license
@@ -31,10 +31,9 @@ Features
 * TODO
 
 Credits
----------
+-------
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 
 .. _Cookiecutter: https://github.com/audreyr/cookiecutter
 .. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
-
