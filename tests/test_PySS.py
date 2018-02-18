@@ -13,8 +13,8 @@ from click.testing import CliRunner
 from PySS import cli
 
 
-class TestSteelToolbox(unittest.TestCase):
-    """Tests for `steel_toolbox` package."""
+class TestPySS(unittest.TestCase):
+    """Tests for `PySS` package."""
 
     def setUp(self):
         """Set up test fixtures, if any."""
