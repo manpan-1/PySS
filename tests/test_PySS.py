@@ -12,6 +12,8 @@ from click.testing import CliRunner
 
 from PySS import cli
 
+import os
+
 
 class TestPySS(unittest.TestCase):
     """Tests for `PySS` package."""
@@ -110,8 +112,16 @@ class TestPySS(unittest.TestCase):
         f_yield = 700.
         fab_class = 'fcA'
 
+        cwd = os.getcwd().split(sep='/')[-1]
+        if cwd == 'PySS':
+            datapath = './test_data/'
+        elif cwd == 'tests':
+            datapath = './test_data/'
+        else:
+            datapath = './'
+
         case.add_theoretical_specimen(n_sides, length, f_yield, fab_class, p_class=p_class, thickness=thickness)
-        case.add_real_specimen('./test_data/')
+        case.add_real_specimen(datapath)
 
         # Perform checks
         self.assertEqual(case.real_specimen.thickness, 3.)
