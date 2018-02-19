@@ -236,7 +236,7 @@ class TheoreticalSpecimen(sd.Part):
         theta = 2 * np.pi / n_sides
 
         # Width of each side
-        side_width = diam_circum * np.sin(np.pi / n_sides)
+        facet_width = diam_circum * np.sin(np.pi / n_sides)
 
         # Polar coordinate of the polygon vertices on the cross-section plane
         phii = []
@@ -259,7 +259,7 @@ class TheoreticalSpecimen(sd.Part):
         geometry = sd.Geometry(cs_sketch, length, thickness)
         cs_props = sd.CsProps.from_cs_sketch(cs_sketch)
         cs_props.max_dist = r_circum
-        cs_props.min_dist = np.sqrt(r_circum ** 2 - (side_width / 2) ** 2)
+        cs_props.min_dist = np.sqrt(r_circum ** 2 - (facet_width / 2) ** 2)
 
         lmbda_y = sd.lmbda_flex(
             length,
@@ -280,7 +280,7 @@ class TheoreticalSpecimen(sd.Part):
         )
 
         # Axial compression resistance , Npl
-        n_pl_rd = n_sides * sd.n_pl_rd(thickness, side_width, f_yield)
+        n_pl_rd = n_sides * sd.n_pl_rd(thickness, facet_width, f_yield)
 
         # Compression resistance of equivalent cylindrical shell
         n_b_rd_shell = 2 * np.pi * r_circle * thickness * sd.sigma_x_rd(
@@ -293,7 +293,7 @@ class TheoreticalSpecimen(sd.Part):
         )
 
         # Plate classification acc. to EC3-1-1
-        p_classification = side_width / (epsilon * thickness)
+        p_classification = facet_width / (epsilon * thickness)
 
         # Tube classification slenderness acc. to EC3-1-1
         t_classification = 2 * r_circle / (epsilon ** 2 * thickness)
@@ -308,6 +308,7 @@ class TheoreticalSpecimen(sd.Part):
         )
 
         geometry.r_circle = r_circle
+        geometry.facet_width = facet_width
 
         return cls(geometry, cs_props, material, struct_props)
 
