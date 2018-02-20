@@ -14,17 +14,15 @@ from matplotlib import pyplot as plt
 
 class Experiment:
     """
-    Laboratory test data
+    Laboratory test data.
 
-    Class laboratory experiment containing methods for loading and manipulating data recorded with CATMAN software.
+    Class laboratory experiment containing methods for loading and manipulating data recorded with CATMAN software. The
+    class is designed to be used with the `from_...` alternative constructors and not by giving the data directly for
+    the object to be constructed.
 
     """
-
-    def __init__(self, header, channel_header, data, name):
-        self.header = header
+    def __init__(self, name=None, data=None):
         self.data = data
-        self.channel_header = channel_header
-        self.data_length = int(header[6][0][9:])
         self.name = name
 
     def plot2d(self, x_data, y_data, ax=None):
@@ -56,22 +54,22 @@ class Experiment:
 
     def add_new_channel_zeros(self, name):
         """"Initialise a new channel entry in the dictionary with zeros."""
-        self.data[name] = np.zeros([self.data_length, 1])
+        self.data[name] = np.zeros([len(self.data[next(iter(self.data))]), 1])
 
     @classmethod
     def from_file(cls, fh):
         """
-        Method reading text files containing data recorded with CATMAN.
+        Alternative constructor.
 
-        Used to import data saved as ascii with CATMAN from the laboratory. ISO-8859-1 encoding is assumed.
-        Warning: Columns in the file with the same name are overwritten, only the last one is added to the object.
+        Used to make a coupon object and load the data at once.
 
         Parameters
         ----------
         fh : str
-            File path
+            Path of ascii data file.
 
         """
+
         # Name from filename.
         filename = splitext(basename(fh))[0]
 
@@ -103,5 +101,27 @@ class Experiment:
                 channel[j] = (float(row[i].replace(',', '.')))
             data[name] = channel
 
-        # Create object
-        return cls(header, column_head, data, filename)
+        return cls(name=filename, data=data)
+
+
+class CouponTest(Experiment):
+    """
+    Class for coupon tests.
+
+    Inherits the basic properties of a generic experiment class and offers standard calculations for rectangular
+    cross-section tensile coupon tests.
+
+    """
+
+    def __init__(self, name=None, data=None, thickness=None, width=None, l_0=None):
+        super().__init__(name=name, data=data)
+        self.thickness = thickness
+        self.width = width
+        self.l_0 = l_0
+
+
+def main():
+    cp = []
+    for i in range(1, 7):
+        cp.append(CouponTest.load_data('./data/coupons/cp{}.asc'.format(i)))
+

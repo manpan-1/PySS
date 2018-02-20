@@ -176,6 +176,7 @@ class TheoreticalSpecimen(sd.Part):
                  material=None,
                  struct_props=None,
                  bc_loads=None):
+
         super().__init__(
             geometry,
             cs_props,
@@ -257,6 +258,12 @@ class TheoreticalSpecimen(sd.Part):
 
         cs_sketch = sd.CsSketch(nodes, elem)
         geometry = sd.Geometry(cs_sketch, length, thickness)
+
+        # Additional geometric properties (exclusive to the polygonal)
+        geometry.r_circle = r_circle
+        geometry.facet_width = facet_width
+        geometry.n_sides = n_sides
+
         cs_props = sd.CsProps.from_cs_sketch(cs_sketch)
         cs_props.max_dist = r_circum
         cs_props.min_dist = np.sqrt(r_circum ** 2 - (facet_width / 2) ** 2)
@@ -307,8 +314,6 @@ class TheoreticalSpecimen(sd.Part):
             n_b_rd_shell=n_b_rd_shell
         )
 
-        geometry.r_circle = r_circle
-        geometry.facet_width = facet_width
 
         return cls(geometry, cs_props, material, struct_props)
 
@@ -655,11 +660,11 @@ class RealSpecimen:
 
 
 class TestData(lt.Experiment):
-    def __init__(self, header, channel_header, data, name, specimen_length=None, cs_area=None):
+    def __init__(self, name=None, data=None, specimen_length=None, cs_area=None):
         self.specimen_length = specimen_length
         self.cs_area = cs_area
 
-        super().__init__(header, channel_header, data, name)
+        super().__init__(name=name, data=data)
 
     def process_data(self):
         """
