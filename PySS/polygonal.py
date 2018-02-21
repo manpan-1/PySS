@@ -444,6 +444,8 @@ class RealSpecimen:
         self.edges = edges
         self.centre_line = centre_line
         self.thickness = thickness
+        self.max_edge_imp = None
+        self.max_face_imp = None
 
     def centre_line_from_pickle(self, fh):
         """
@@ -613,7 +615,6 @@ class RealSpecimen:
         """
         Plot all data.
 
-        :return:
         """
         max_z = max([x.scanned_data[:, 2].max() for x in self.sides])
         min_z = min([x.scanned_data[:, 2].min() for x in self.sides])
@@ -623,6 +624,21 @@ class RealSpecimen:
             self.sides[i].plot_face(reduced=0.001, fig=fig1)
         for i in range(-len(self.edges), 0):
             self.edges[i].facet_intrsct_line.plot_line(fig=fig1, ends=[min_z, max_z])
+
+    def gather_max_imperfections(self):
+        """
+        Collect initial imperfection info from all the edges and facets.
+
+        """
+        self.max_face_imp = []
+        self.max_edge_imp = []
+        for x in self.sides:
+            self.max_face_imp.append(max(x.face2ref_dist))
+        for x in self.edges:
+            try:
+                self.max_edge_imp.append(max(x.edge2ref_dist))
+            except:
+                self.max_edge_imp.append(None)
 
     def print_report(self):
         """

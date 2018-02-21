@@ -464,10 +464,10 @@ class RoundedEdge(Scan3D):
 
     def calc_edge2ref_dist(self):
         """Calculate distances of edge points to the reference line."""
-        if self.ref_line and not self.ref_line is NotImplemented:
+        if self.ref_line and self.ref_line is not NotImplemented:
             self.edge2ref_dist = []
             for x in self.edge_points:
-                self.edge2ref_dist.append(x.distance_to_line(self.theoretical_edge))
+                self.edge2ref_dist.append(x.distance_to_line(self.ref_line))
 
         else:
             print('No reference line. First, add a reference line to the object. Check if the fitting process on the '
