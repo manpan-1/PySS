@@ -444,7 +444,7 @@ class RoundedEdge(Scan3D):
                     # If the line intersects with the circle, select the intersection point which is closest to the
                     # theoretical line.
                     dist = [np.linalg.norm(theoretical_line_point - x) for x in line_circle_intersection]
-                    ref_point = line_circle_intersection[dist.index(max(dist))]
+                    ref_point = line_circle_intersection[dist.index(min(dist))]
 
                     # Append the point to the list of edge_points
                     self.edge_points.append(ag.Point3D(np.append(ref_point, z_current)))
@@ -466,7 +466,14 @@ class RoundedEdge(Scan3D):
         if self.ref_line and self.ref_line is not NotImplemented:
             self.edge2ref_dist = []
             for x in self.edge_points:
-                self.edge2ref_dist.append(x.distance_to_line(self.ref_line))
+                # Find the distances from the the real edge and the ref line points to the (0, 0). Based on which one is
+                # further away from the origin, the sign of the distance is assigned
+                edge = np.linalg.norm(np.r_[0, 0] - x.coords[:2])
+                refp = np.linalg.norm(np.r_[0, 0] - self.ref_line.xy_for_z(x.coords[2])[:2])
+                s = np.sign(edge - refp)
+
+                # calculate the distance of the edge point to the ref line and give this distance the sign calculated.
+                self.edge2ref_dist.append(s * x.distance_to_line(self.ref_line))
 
         else:
             print('No reference line. First, add a reference line to the object. Check if the fitting process on the '
