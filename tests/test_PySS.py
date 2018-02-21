@@ -126,10 +126,6 @@ class TestPySS(unittest.TestCase):
         # Perform checks
         self.assertEqual(case.real_specimen.thickness, 3.)
         self.assertAlmostEqual(case.real_specimen.sides[0].ref_plane.plane_coeff[0], -0.016774265594874858)
-        # self.assertTrue(all(case.real_specimen.sides[0].ref_plane.plane_coeff == [-0.016774265594874858,
-        #                                                                           0.99985606971653651,
-        #                                                                           0.0025424131751930323,
-        #                                                                           130.24190547807578]))
 
     def test_point_methods(self):
         """Test the `Point3D` class from `analytic_geometry`."""
