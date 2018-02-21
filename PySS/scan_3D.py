@@ -427,11 +427,11 @@ class RoundedEdge(Scan3D):
                 #print('Finding edge point at height {}'.format(z_current))
 
                 # Get the x-y coordinates of the edge reference line and the mid-line for the given height, z.
-                ref_line_point = self.theoretical_edge.xy_for_z(z_current)
+                theoretical_line_point = self.theoretical_edge.xy_for_z(z_current)[:2]
                 other_line_point = other.xy_for_z(z_current)
 
                 # Create a temporary line object from the two points.
-                intersection_line = ag.Line2D.from_2_points(ref_line_point[:2], other_line_point[:2])
+                intersection_line = ag.Line2D.from_2_points(theoretical_line_point, other_line_point[:2])
 
                 # Intersect this temporary line with the current circle.
                 line_circle_intersection = circle.intersect_with_line(intersection_line)
@@ -441,14 +441,13 @@ class RoundedEdge(Scan3D):
                     print("Line and circle at height {} do not intersect. Point ignored.".format(z_current))
 
                 else:
-                    # If the line intersects with the circle, select the outermost of the two intersection points.
-                    if np.linalg.norm(line_circle_intersection[0]) > np.linalg.norm(line_circle_intersection[1]):
-                        outer = line_circle_intersection[0]
-                    else:
-                        outer = line_circle_intersection[1]
+                    # If the line intersects with the circle, select the intersection point which is closest to the
+                    # theoretical line.
+                    dist = [np.linalg.norm(theoretical_line_point - x) for x in line_circle_intersection]
+                    ref_point = line_circle_intersection[dist.index(max(dist))]
 
                     # Append the point to the list of edge_points
-                    self.edge_points.append(ag.Point3D(np.append(outer, z_current)))
+                    self.edge_points.append(ag.Point3D(np.append(ref_point, z_current)))
         else:
             print('The input object is not of the class `Line3D`')
             return NotImplemented
