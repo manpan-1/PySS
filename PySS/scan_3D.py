@@ -388,10 +388,15 @@ class RoundedEdge(Scan3D):
         """
         Fit a series of circles along the length of the rounded edge.
 
-        The scanned data are first grouped together based on their z-coordinate ant then a horizontal circle is fitted
+        The scanned data are first grouped together based on their z-coordinate and then a horizontal circle is fitted
         for each group of points.
 
-        :return:
+        Note
+        ----
+        The resulted circle from fitting at each height, z, are checked so that the centres are closer to the origin
+        than the points that generated it, essentially checking if the curvature of the points is concave towards the
+        origin. If not, the circle is ignored and a `None` placeholder is appended to the list of circles.
+
         """
         if axis is None:
             axis = 0
@@ -401,9 +406,13 @@ class RoundedEdge(Scan3D):
 
         self.quantize(axis=axis)
         self.circles = []
-        for x in self.grouped_data:
-            self.circles.append(ag.Circle2D.from_fitting(x))
-            self.circles[-1].radius = self.circles[-1].radius + offset
+        for group in self.grouped_data:
+            circle = ag.Circle2D.from_fitting(group)
+            if all([np.linalg.norm(i.coords[:2]) > np.linalg.norm(circle.centre) for i in group]):
+                self.circles.append(circle)
+                self.circles[-1].radius = self.circles[-1].radius + offset
+            else:
+                print('Suspicious circle from fitting ignored at height:    {}'.format(group[0].coords[2]))
 
     # TODO: Docstrings parameters...
     def calc_edge_points(self, other):
