@@ -148,6 +148,9 @@ class PolygonalColumn:
         specimen.find_edge_imperfection_displacements()
         specimen.find_facet_imperfection_displacements()
 
+        # Extract the maximum imperfection displacement from each facet and edge.
+        specimen.gather_max_imperfections()
+
         # Assign the constructed specimen to the object
         self.real_specimen = specimen
 
@@ -633,12 +636,12 @@ class RealSpecimen:
         self.max_face_imp = []
         self.max_edge_imp = []
         for x in self.sides:
-            self.max_face_imp.append(max(x.face2ref_dist))
+            self.max_face_imp.append(max(np.abs(x.face2ref_dist)))
         for x in self.edges:
             try:
-                self.max_edge_imp.append(max(x.edge2ref_dist))
+                self.max_edge_imp.append(max(np.abs(x.edge2ref_dist)))
             except:
-                self.max_edge_imp.append(None)
+                self.max_edge_imp.append(NotImplemented)
 
     def print_report(self):
         """

@@ -388,10 +388,15 @@ class RoundedEdge(Scan3D):
         """
         Fit a series of circles along the length of the rounded edge.
 
-        The scanned data are first grouped together based on their z-coordinate ant then a horizontal circle is fitted
+        The scanned data are first grouped together based on their z-coordinate and then a horizontal circle is fitted
         for each group of points.
 
-        :return:
+        Note
+        ----
+        The resulted circle from fitting at each height, z, are checked so that the centres are closer to the origin
+        than the points that generated it, essentially checking if the curvature of the points is concave towards the
+        origin. If not, the circle is ignored and a `None` placeholder is appended to the list of circles.
+
         """
         if axis is None:
             axis = 0
@@ -401,9 +406,13 @@ class RoundedEdge(Scan3D):
 
         self.quantize(axis=axis)
         self.circles = []
-        for x in self.grouped_data:
-            self.circles.append(ag.Circle2D.from_fitting(x))
-            self.circles[-1].radius = self.circles[-1].radius + offset
+        for group in self.grouped_data:
+            circle = ag.Circle2D.from_fitting(group)
+            if all([np.linalg.norm(i.coords[:2]) > np.linalg.norm(circle.centre) for i in group]):
+                self.circles.append(circle)
+                self.circles[-1].radius = self.circles[-1].radius + offset
+            else:
+                print('Suspicious circle from fitting ignored at height:    {}'.format(group[0].coords[2]))
 
     # TODO: Docstrings parameters...
     def calc_edge_points(self, other):
@@ -427,11 +436,11 @@ class RoundedEdge(Scan3D):
                 #print('Finding edge point at height {}'.format(z_current))
 
                 # Get the x-y coordinates of the edge reference line and the mid-line for the given height, z.
-                ref_line_point = self.theoretical_edge.xy_for_z(z_current)
+                theoretical_line_point = self.theoretical_edge.xy_for_z(z_current)[:2]
                 other_line_point = other.xy_for_z(z_current)
 
                 # Create a temporary line object from the two points.
-                intersection_line = ag.Line2D.from_2_points(ref_line_point[:2], other_line_point[:2])
+                intersection_line = ag.Line2D.from_2_points(theoretical_line_point, other_line_point[:2])
 
                 # Intersect this temporary line with the current circle.
                 line_circle_intersection = circle.intersect_with_line(intersection_line)
@@ -441,14 +450,13 @@ class RoundedEdge(Scan3D):
                     print("Line and circle at height {} do not intersect. Point ignored.".format(z_current))
 
                 else:
-                    # If the line intersects with the circle, select the outermost of the two intersection points.
-                    if np.linalg.norm(line_circle_intersection[0]) > np.linalg.norm(line_circle_intersection[1]):
-                        outer = line_circle_intersection[0]
-                    else:
-                        outer = line_circle_intersection[1]
+                    # If the line intersects with the circle, select the intersection point which is closest to the
+                    # theoretical line.
+                    dist = [np.linalg.norm(theoretical_line_point - x) for x in line_circle_intersection]
+                    ref_point = line_circle_intersection[dist.index(min(dist))]
 
                     # Append the point to the list of edge_points
-                    self.edge_points.append(ag.Point3D(np.append(outer, z_current)))
+                    self.edge_points.append(ag.Point3D(np.append(ref_point, z_current)))
         else:
             print('The input object is not of the class `Line3D`')
             return NotImplemented
@@ -467,7 +475,14 @@ class RoundedEdge(Scan3D):
         if self.ref_line and self.ref_line is not NotImplemented:
             self.edge2ref_dist = []
             for x in self.edge_points:
-                self.edge2ref_dist.append(x.distance_to_line(self.ref_line))
+                # Find the distances from the the real edge and the ref line points to the (0, 0). Based on which one is
+                # further away from the origin, the sign of the distance is assigned
+                edge = np.linalg.norm(np.r_[0, 0] - x.coords[:2])
+                refp = np.linalg.norm(np.r_[0, 0] - self.ref_line.xy_for_z(x.coords[2])[:2])
+                s = np.sign(edge - refp)
+
+                # calculate the distance of the edge point to the ref line and give this distance the sign calculated.
+                self.edge2ref_dist.append(s * x.distance_to_line(self.ref_line))
 
         else:
             print('No reference line. First, add a reference line to the object. Check if the fitting process on the '
