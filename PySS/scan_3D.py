@@ -305,7 +305,7 @@ class FlatFace(Scan3D):
 
         if offset_points:
             point_list = [ag.Point3D(p.coords + self.ref_plane.plane_coeff[:3] * offset) for p in self.scanned_data]
-            self.scanned_data = np.array(point_list)
+            #self.scanned_data = np.array(point_list)
 
     def calc_face2ref_dist(self):
         """Calculates distances from facet points to the reference plane."""
@@ -345,16 +345,40 @@ class FlatFace(Scan3D):
         else:
             print('No scanned points to plot.')
 
-        # Check if the the object contains a plane.
+        # Check if the the object contains a plane and plot it.
         if self.ref_plane:
             print('Plotting plane.')
             # Create a grid for for xy
+            # get height and width (z and x axes) limits from points
             x_lims = [self.centre[0] - self.size[0] / 2., self.centre[0] + self.size[0] / 2.]
             y_lims = [self.centre[1] - self.size[1] / 2., self.centre[1] + self.size[1] / 2.]
-            x, y = np.meshgrid(x_lims, y_lims)
+            z_lims = [self.centre[2] - self.size[2] / 2., self.centre[2] + self.size[2] / 2.]
+
+            ll1 = self.ref_plane.xy_return(z_lims[0])
+            ll2 = self.ref_plane.xy_return(z_lims[1])
+
+            if self.size[0]>self.size[1]:
+                y1 = ll1.y_for_x(x_lims[0])
+                y2 = ll1.y_for_x(x_lims[1])
+                y3 = ll2.y_for_x(x_lims[0])
+                y4 = ll2.y_for_x(x_lims[1])
+
+                x = np.array([x_lims, x_lims])
+                y = np.array([[y1, y2], [y3, y4]])
+            else:
+                x1 = ll1.x_for_y(y_lims[0])
+                x2 = ll1.x_for_y(y_lims[1])
+                x3 = ll2.x_for_y(y_lims[0])
+                x4 = ll2.x_for_y(y_lims[1])
+
+                x = np.array([[x1, x2], [x3, x4]])
+                y = np.array([y_lims, y_lims])
+
+            # x, y = np.meshgrid(x_lims, y_lims)
+            # print(x, type(x))
+            # print(y, type(y))
             # evaluate the plane function on the grid.
             z = self.ref_plane.z_return(x, y)
-
             # or expressed using matrix/vector product
             # z = np.dot(np.c_[xx, yy, np.ones(xx.shape)], self.plane_coeff).reshape(x.shape)
 

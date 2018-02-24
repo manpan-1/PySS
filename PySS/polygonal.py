@@ -588,7 +588,6 @@ class RealSpecimen:
             print('Wrong type inputs. Check if the real_specimen object has a centre line assigned to it and if it has'
                   'a list of edge lines.')
             return NotImplemented
-
         if ref_lines:
             for i, x in enumerate(self.edges):
                 print('Calculating reference line by fitting on the edge points, edge:    {}'.format(i + 1))
@@ -619,14 +618,15 @@ class RealSpecimen:
         Plot all data.
 
         """
-        max_z = max([x.scanned_data[:, 2].max() for x in self.sides])
-        min_z = min([x.scanned_data[:, 2].min() for x in self.sides])
         fig1 = plt.figure()
         Axes3D(fig1)
         for i in range(-len(self.sides), 0):
-            self.sides[i].plot_face(reduced=0.001, fig=fig1)
-        for i in range(-len(self.edges), 0):
-            self.edges[i].facet_intrsct_line.plot_line(fig=fig1, ends=[min_z, max_z])
+            self.sides[i].plot_face(reduced=0.01, fig=fig1)
+        for i in self.edges:
+            max_z = max([i.coords[2] for i in i.scanned_data])
+            min_z = min([i.coords[2] for i in i.scanned_data])
+
+            i.theoretical_edge.plot_line(fig=fig1, ends=[min_z, max_z])
 
     def gather_max_imperfections(self):
         """
