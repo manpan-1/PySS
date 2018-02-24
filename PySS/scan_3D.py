@@ -152,22 +152,24 @@ class Scan3D:
             print('Wrong input. Input must be np.ndarray')
             return NotImplemented
 
-    # TODO:Docstring...
     def sort_on_axis(self, axis=None):
         """
         Sort scanned data.
 
         The scanned points are sorted for a given axis.
 
-        :param axis:
-        :return:
+        Parameters
+        ----------
+        axis : {0, 1, 2}, optional
+            Axis for which the points are sorted. 0 for `x`, 1 for `y` and 2 for `z`.
+            Default is 0
+
         """
         if axis is None:
             axis = 0
 
         self.scanned_data.sort(key=lambda x: x.coords[axis])
 
-    # TODO:Docstring...
     def quantize(self, axis=None, tolerance=None):
         """
         Group the scanned data.
@@ -175,9 +177,14 @@ class Scan3D:
         The points with difference on a given axis smaller than the tolerance are grouped together and stored in a list
         in the attribute `grouped_data`.
 
-        :param axis:
-        :param tolerance:
-        :return:
+        Parameters
+        ----------
+        axis : {0, 1, 2}, optional
+            Axis for which the points are grouped. 0 for `x`, 1 for `y` and 2 for `z`.
+            Default is 0.
+        tolerance : float
+            Distance tolerance for grouping the points.
+
         """
         if axis is None:
             axis = 0
@@ -216,22 +223,48 @@ class Scan3D:
         self.centre = np.r_[x_mid, y_mid, z_mid]
         self.size = np.r_[x_range, y_range, z_range]
 
-        # TODO: fix: the method stopped working after the Point3D implementation. Currently commented.
-        # def plot_surf(self):
-        #     """
-        #     Method plotting the model as a 3D surface.
-        #     """
-        #     # Create the x, y, z numpy
-        #     x = [i[0] for i in self.scanned_data]
-        #     y = [i[1] for i in self.scanned_data]
-        #     z = [i[2] for i in self.scanned_data]
-        #
-        #     # Create a figure.
-        #     fig = plt.figure()
-        #     ax = fig.gca(projection='3d')
-        #
-        #     # Plot the data
-        #     ax.plot_trisurf(x, y, z)
+        #TODO: fix: the method stopped working after the Point3D implementation. Currently commented.
+
+    def plot_points(self, fig=None, reduced=None):
+        """
+        Method plotting the model as a 3D surface.
+
+        Parameters
+        ----------
+        fig : Object of class matplotlib.figure.Figure, optional
+            The figure window to be used for plotting. By default, a new window is created.
+        reduced: float, optional
+            A reduced randomly selected subset of points is plotted (in case the data is too dense for plotting). The
+            reduced size is given as a ratio of the total number of points, e.g `reduced=0.5` plots half the points. By
+            default, all points are plotted.
+
+        """
+        # Get a figure to plot on
+        if fig is None:
+            fig = plt.figure()
+            ax = Axes3D(fig)
+        else:
+            ax = fig.get_axes()[0]
+
+        # Make a randomly selected subset of points acc. to the input arg 'reduced=x'.
+        if isinstance(reduced, float) and (0 < reduced < 1):
+            n = list(np.random.choice(
+                len(self.scanned_data),
+                size=round(len(self.scanned_data) * reduced),
+                replace=False
+            ))
+        else:
+            n = range(0, len(self.scanned_data))
+
+        # Create the x, y, z lists
+        x, y, z = [], [], []
+        for i in n:
+            x.append(self.scanned_data[i].coords[0])
+            y.append(self.scanned_data[i].coords[1])
+            z.append(self.scanned_data[i].coords[2])
+
+        # Plot the data
+        ax.scatter(x, y, z, c='r', s=1)
 
 
 class FlatFace(Scan3D):
@@ -291,29 +324,12 @@ class FlatFace(Scan3D):
         ----------
         fig : Object of class matplotlib.figure.Figure, optional
             The figure window to be used for plotting. By default, a new window is created.
-        reduced: float, optional
-            A reduced randomly selected subset of points is plotted (in case the data is too dense for plotting). The
-            rediced size is given as a ratio of the total number of points, e.g `reduced=0.5` plots half the points. By
-            default, all points are plotted.
+
         """
 
         # Average and range of the points.
         self.centre_size()
-
-        x_lims = [self.centre[0] - self.size[0] / 2., self.centre[0] + self.size[0] / 2.]
-        y_lims = [self.centre[1] - self.size[1] / 2., self.centre[1] + self.size[1] / 2.]
-
-        x, y = np.meshgrid(x_lims, y_lims)
-
-        # evaluate the plane function on the grid.
-        z = self.ref_plane.z_return(x, y)
-
-        # or expressed using matrix/vector product
-        # z = np.dot(np.c_[xx, yy, np.ones(xx.shape)], self.plane_coeff).reshape(x.shape)
         plot_dim = max(self.size[0], self.size[1], self.size[2])
-
-        # Quadratic:evaluate it on a grid
-        # z = np.dot(np.c_[np.ones(xx.shape), xx, yy, xx * yy, xx ** 2, yy ** 2], self.plane_coeff).reshape(x.shape)
 
         # Get a figure to plot on
         if fig is None:
@@ -322,29 +338,39 @@ class FlatFace(Scan3D):
         else:
             ax = fig.get_axes()[0]
 
-        # Plot the plane
-        ax.plot_surface(x, y, z, rstride=1, cstride=1, alpha=0.2)
-
-        # Make a randomly selected subset of points acc. to the input arg 'reduced=x'.
-        if isinstance(reduced, float) and (0 < reduced < 1):
-            i = np.random.choice(
-                len(self.scanned_data[:, 0]),
-                size=round(len(self.scanned_data[:, 0]) * reduced),
-                replace=False
-            )
+        # Plot scanned points
+        if self.scanned_data:
+            print('Plotting scanned points')
+            self.plot_points(fig=fig, reduced=reduced)
         else:
-            i = range(0, len(self.scanned_data[:, 0]))
+            print('No scanned points to plot.')
 
-        # Plot the points
-        ax.scatter(self.scanned_data[i, 0], self.scanned_data[i, 1], self.scanned_data[i, 2], c='r', s=50)
+        # Check if the the object contains a plane.
+        if self.ref_plane:
+            print('Plotting plane.')
+            # Create a grid for for xy
+            x_lims = [self.centre[0] - self.size[0] / 2., self.centre[0] + self.size[0] / 2.]
+            y_lims = [self.centre[1] - self.size[1] / 2., self.centre[1] + self.size[1] / 2.]
+            x, y = np.meshgrid(x_lims, y_lims)
+            # evaluate the plane function on the grid.
+            z = self.ref_plane.z_return(x, y)
+
+            # or expressed using matrix/vector product
+            # z = np.dot(np.c_[xx, yy, np.ones(xx.shape)], self.plane_coeff).reshape(x.shape)
+
+            # Plot the plane
+            ax.plot_surface(x, y, z, rstride=1, cstride=1, alpha=0.2)
+
+        else:
+            print('No reference plane to plot. Use `fit_plane` to create one.')
+
+        # Regulate figure.
         plt.xlabel('x')
         plt.ylabel('y')
         ax.set_zlabel('z')
         ax.set_xlim3d(self.centre[0] - plot_dim / 2, self.centre[0] + plot_dim / 2)
         ax.set_ylim3d(self.centre[1] - plot_dim / 2, self.centre[1] + plot_dim / 2)
         ax.set_zlim3d(self.centre[2] - plot_dim / 2, self.centre[2] + plot_dim / 2)
-
-        # ax.axis('tight')
         plt.show()
 
         # Return the figure handle.
