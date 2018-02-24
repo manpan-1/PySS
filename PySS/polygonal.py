@@ -14,7 +14,7 @@ import pickle
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-
+#TODO: write extended docstrings for the classes
 class PolygonalColumn:
     """
     Polygonal column.
@@ -27,7 +27,7 @@ class PolygonalColumn:
         self.real_specimen = real_specimen
         self.experiment_data = experiment_data
 
-    def add_theoretical_specimen(self,
+    def set_theoretical_specimen(self,
                                  n_sides,
                                  length,
                                  f_yield,
@@ -36,7 +36,33 @@ class PolygonalColumn:
                                  p_class=None,
                                  thickness=None
                                  ):
+        """
+        Set a theoretical polygonal column.
 
+        Sets a :obj:`TheoreticalSpecimen` that contains information on the properties and calculations for the polygonal
+        column. The calculations are according to Eurocode 3, especially parts 1-1, 1-5 and 1-6.
+
+        The theoretical specimen can be described by its shape or slenderness. In any case, at least 2 of the 3 optional
+        input parameters {`r_circle`, `thickness`, `p_class`} must be given.
+
+        Parameters
+        ----------
+        n_sides : int
+            Number of sides of the polygon cross-section.
+        length : float
+            Length of the column.
+        f_yield : float
+            Yield stress.
+        fab_class : {'fcA', 'fcB', 'fcC'}
+            Fabrication class, as described in EN1993-1-6.
+        r_circle : float, optional
+            Radius of the equicalent cylinder.
+        p_class : float, optional
+            Plate classification, c/εt.
+        thickness : float. optional
+            Thickness of the profile.
+
+        """
         if [i is None for i in [r_circle, p_class, thickness]].count(True) > 1:
             print('Not enough info. Two out of the three optional arguments {r_circle, p_class, thickness}'
                   ' must be given.')
@@ -74,13 +100,13 @@ class PolygonalColumn:
         """
         Add data from scanning pickle file.
 
-        Adds a self.specimen object of the RealSpecimen class. Scanned data are loaded from a list of pickle files
-        corresponding to sides and edges, each file containing point coordinates. The pickle files are assumed to follow
-        the the filename structure:
+        Adds a :obj:`RealSpecimen` object from files. Scanned data are loaded from a list of pickle files
+        corresponding to sides and edges, each file containing point coordinates. The pickle files are assumed to be in
+        the same directory and have the following filename structure:
 
-        files with points of sides: `side_XX.pkl`
-        files iwth points od edges: `edge_XX.pkl`
-        where `XX` is an ascending number starting from 01.
+        - files with points of sides: `side_XX.pkl`
+        - files with points od edges: `edge_XX.pkl`
+        - where `XX` is an ascending number starting from 01.
 
         Parameters
         ----------
@@ -124,7 +150,6 @@ class PolygonalColumn:
             specimen = RealSpecimen(thickness=self.theoretical_specimen.geometry.thickness)
 
         # Add a center line for the specimen.
-        # TODO: add real centreline from file.
         print('Adding centre-line from pickle.')
         specimen.centre_line_from_pickle(path + 'centreline.pkl')
 
@@ -141,12 +166,12 @@ class PolygonalColumn:
 
         specimen.add_all_edges(n_edges, path + 'edge_', intrsct_lines=intrsct_lines)
         # Find a series of points for each edge based on the scanned surface.
-        specimen.find_real_edges(offset_to_midline=True, ref_lines=True)
+        specimen.calc_real_edges(offset_to_midline=True, ref_lines=True)
 
         # Calculate the initial imperfection displacements based on the edge and facet reference line and plane
         # accordingly.
-        specimen.find_edge_imperfection_displacements()
-        specimen.find_facet_imperfection_displacements()
+        specimen.calc_edge_imperfection_displacements()
+        specimen.calc_facet_imperfection_displacements()
 
         # Extract the maximum imperfection displacement from each facet and edge.
         specimen.gather_max_imperfections()
@@ -155,7 +180,17 @@ class PolygonalColumn:
         self.real_specimen = specimen
 
     def add_experiment(self, fh):
-        """Add and post-process data from a test"""
+        """
+        Add and experimental data.
+
+        Adds a :obj:`TestData` object from a file to the polygonal column.
+
+        Parameters
+        ----------
+        fh : str
+            Path to the ascii file containing the experimental data.
+
+        """
         self.experiment_data = TestData.from_file(fh)
         self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
         self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
@@ -207,19 +242,14 @@ class TheoreticalSpecimen(sd.Part):
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
-
         r_circle : float
             Radius of the circle circumscribed to the polygon.
-
         thickness : float
             Thickness of the cross-section.
-
         length : float
             Length of the column.
-
         f_yield : float
             Yield stress of the material.
-
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
@@ -340,19 +370,14 @@ class TheoreticalSpecimen(sd.Part):
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
-
         p_classification : float
             Facet slenderness, c/(ε*t).
-
         thickness : float
             Thickness of the cross-section.
-
         length : float
             Length of the column.
-
         f_yield : float
             Yield stress of the material.
-
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
@@ -394,19 +419,14 @@ class TheoreticalSpecimen(sd.Part):
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
-
         r_circle : float
             Radius of the circle circumscribed to the polygon.
-
         p_classification : float
             Facet slenderness, c/(ε*t).
-
         length : float
             Length of the column.
-
         f_yield : float
             Yield stress of the material.
-
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
@@ -471,8 +491,11 @@ class RealSpecimen:
 
         The FlatFace instance is created from a pickle file of scanned data points.
 
-        :param filename:
-        :return:
+        Parameters
+        ----------
+        filename : str
+            Path and filename of the pickle file.
+
         """
         self.sides.append(s3d.FlatFace.from_pickle(filename))
 
@@ -520,8 +543,11 @@ class RealSpecimen:
 
         The RoundEdge instance is created from a pickle file of scanned data points.
 
-        :param filename:
-        :return:
+        Parameters
+        ----------
+        filename : str
+            Path and filename of the pickle file.
+
         """
         self.edges.append(s3d.RoundedEdge.from_pickle(filename))
 
@@ -529,13 +555,14 @@ class RealSpecimen:
         """
         Add multiple edges.
 
-        Multiple RoundEdge instances are created as edges of the polygonal column. A series of files containing scanned
-        data points must be given. The files should be on the same path and have a filename structure as:
-        `path/basenameXX.pkl`, where XX is an id number in ascending order starting from 01.
-        Only the `path/filename` is given as input to this method.
+        Multiple :obj:`scan_3D.RoundedEdge` objects are created as edges of the polygonal column. A series of files
+        containing scanned data points must be given. The files should be on the same path and have a filename structure
+        as:
+        'path/basenameXX.pkl', where XX is an id number in ascending order starting from 01.
+        Only the 'path/basename' should be given for the 'prefix' input argument. The 'XX.pkl' part is automaticaly set.
 
-        After adding the sequential edges, if intrsct_lines=True, the reference lines are calculated as the
-        intersections of sequential sides.
+        After adding the sequential edges, if 'intrsct_lines is 'True', the reference lines are calculated as the
+        intersections of sequential facets of the polygonal specimen.
 
         Parameters
         ----------
@@ -557,14 +584,14 @@ class RealSpecimen:
                 print('Adding theoretical edge, edge:    {}'.format(x + n_sides + 1))
                 self.edges[x].theoretical_edge = (self.sides[x].ref_plane & self.sides[x + 1].ref_plane)
 
-    def find_real_edges(self, offset_to_midline=False, ref_lines=False):
+    def calc_real_edges(self, offset_to_midline=False, ref_lines=False):
         """
-        Find edge points on the scanned rounded edge.
+        Calculate edge points on the scanned rounded edge.
 
-        A series of points is returned which represent the real edge of the polygonal column. Each point is calculated
-        as  the intersection of a circle and a line at different heights of the column, where the circle is best fit to
-        the rounded edge scanned points and the line passing through the reference edge (see `add_all_edges`
-        documentation) and the polygon's centre line.
+        Batches of points are calculated which represent the real edges of the polygonal column. Each point is
+        calculated as  the intersection of a circle and a line at different heights of the column, where the circle is
+        best fit to the rounded edge scanned points and the line passing through the theoretical edge and the polygon's
+        centre line.
 
         Parameters
         ----------
@@ -593,8 +620,24 @@ class RealSpecimen:
                 print('Calculating reference line by fitting on the edge points, edge:    {}'.format(i + 1))
                 x.calc_ref_line()
 
-    def find_edge_imperfection_displacements(self):
-        """Calculate distances of edge points to each reference line."""
+    def calc_edge_imperfection_displacements(self):
+        """
+        Calculate the initial imperfection displacements of the edges.
+
+        The initial imperfection displacements are calculated as the distance of all the real edge points to the
+        their respective reference lines. The distances are signed, being positive for points that are further away
+        from the centre-line than the reference line at the same height.
+
+        Notes
+        -----
+        For the method to function, all edges must contain 'real_edge' and 'ref_lines' attributes.
+
+        See Also
+        --------
+        calc_real_edges : Method providing 'real_edge' and 'ref_line'.
+        calc_facet_imperfection_displacements : Equivalent method for the facet imperfections.
+
+        """
         for i, x in enumerate(self.edges):
             print('Calculating initial imperfection displacements, edge:    {}.'.format(i + 1))
             if x.ref_line:
@@ -607,8 +650,24 @@ class RealSpecimen:
                 print('No reference line. Edge imperfection not calculated.')
                 x.edge2ref_dist = NotImplemented
 
-    def find_facet_imperfection_displacements(self):
-        """Calculate distances of edge points to each reference line."""
+    #TODO: Signed imperfections and plotting.
+    def calc_facet_imperfection_displacements(self):
+        """
+        Calculate the initial imperfection displacements of the facets.
+
+        Initial imperfection displacements are calculated as the distance of all the scanned data points to their
+        respective reference plane.
+
+        Notes
+        -----
+        For the method to function, all facets need to have 'scanned_data' and 'ref_plane' attributes.
+
+        See Also
+        --------
+        add_all_sides : Method providing 'scanned_data' and 'ref_plane'.
+        calc_edge_imperfection_displacements : Equivalent method for the edge imperfections.
+
+        """
         for i, x in enumerate(self.sides):
             print('Calculating initial imperfection displacements, facet:    {}'.format(i + 1))
             x.calc_face2ref_dist()
@@ -616,6 +675,9 @@ class RealSpecimen:
     def plot_all(self):
         """
         Plot all data.
+
+        Plots all the facets, both scanned data points and fitted reference planes, and the theoretical edges (plane
+        intersections).
 
         """
         fig1 = plt.figure()
@@ -631,6 +693,8 @@ class RealSpecimen:
     def gather_max_imperfections(self):
         """
         Collect initial imperfection info from all the edges and facets.
+
+        Calculates the maximum imperfection of all facets and edges saves the lists at the equivalent class attributes.
 
         """
         self.max_face_imp = []
@@ -679,6 +743,10 @@ class RealSpecimen:
 
 
 class TestData(lt.Experiment):
+    """
+    Laboratory test of polygonal specimen.
+
+    """
     def __init__(self, name=None, data=None, specimen_length=None, cs_area=None):
         self.specimen_length = specimen_length
         self.cs_area = cs_area
@@ -687,19 +755,35 @@ class TestData(lt.Experiment):
 
     def process_data(self):
         """
+        Process raw data.
 
-        :return:
+        Method simply calling all the relevant processing methods. It is the following methods in order:
+        1. :obj:`calc_avg_strain`
+        2. :obj:`calc_disp_from_strain`
+        3. :obj:`calc_avg_stress`
+
         """
         self.calc_avg_strain()
         self.calc_disp_from_strain()
         self.calc_avg_stress()
 
+    #TODO: fix the add_Eccentricity method
     def add_eccentricity(self, axis, column, moi, min_dist, thickness, young):
         """
         Calculate eccentricity.
 
         Adds a column in the data dictionary for the eccentricity of the load application on a given axis based on
         two opposite strain measurements.
+
+        Parameters
+        ----------
+        axis :
+        column :
+        moi :
+        mon_dist :
+        thickness :
+        young :
+
         """
 
         self.data['e_' + axis] = []
@@ -716,10 +800,13 @@ class TestData(lt.Experiment):
         """
         Offset stroke values.
 
+        Used to set the tare value of the stroke. The required offset can be either given use the first reading of the
+        stroke channel.
+
         Parameters
         ----------
         offset : float, optional
-            Distance to offset. By default, the initial displacement (first value) is used, effectively displaceing
+            Distance to offset. By default, the initial position (first value) is used, effectively displacing
             the values to start from 0.
 
         """
@@ -748,14 +835,21 @@ class TestData(lt.Experiment):
         self.data['avg_strain'] = self.data['avg_strain'] / (i * 1e6)
 
     def calc_avg_stress(self):
-        """Calculate the average stress based on the measured reaction force on the load cell and the
-        theoretical area."""
+        """Calculate the average stress from the measured reaction force and the cross-section area."""
         # Create new data channel.
         self.add_new_channel_zeros('avg_stress')
         self.data['avg_stress'] = self.data['Load'] * 1e3 / self.cs_area
 
     def plot_stroke_load(self, ax=None):
-        """Load vs stroke curve plotter"""
+        """
+        Load vs stroke curve plotter
+
+        Parameters
+        ----------
+        ax : :obj:`matplotlib.axes`, optional
+            Axes for the plot to be added in. By default is plotted on a new figure.
+
+        """
         if ax is None:
             fig = plt.figure()
             plt.plot()
@@ -778,7 +872,15 @@ class TestData(lt.Experiment):
             return ax
 
     def plot_strain_stress(self, ax=None):
-        """Plot average strain vs average stress."""
+        """
+        Plot average strain vs average stress.
+
+        Parameters
+        ----------
+        ax : :obj:`matplotlib.axes`, optional
+            Axes for the plot to be added in. By default is plotted on a new figure.
+
+        """
         if ax is None:
             fig = plt.figure()
             plt.plot()
@@ -803,7 +905,15 @@ class TestData(lt.Experiment):
             return ax
 
     def plot_disp_load(self, ax=None):
-        """Plot load vs real displacement."""
+        """
+        Plot load vs real displacement.
+
+        Parameters
+        ----------
+        ax : :obj:`matplotlib.axes`, optional
+            Axes for the plot to be added in. By default is plotted on a new figure.
+
+        """
         if ax is None:
             fig = plt.figure()
             plt.plot()
@@ -1017,15 +1127,15 @@ def main(
     cases = [PolygonalColumn(name='specimen{}'.format(i + 1)) for i in range(9)]
 
     print('Adding theoretical specimens with calculations to the polygonal columns')
-    cases[0].add_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=30.)
-    cases[1].add_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=40.)
-    cases[2].add_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=50.)
-    cases[3].add_theoretical_specimen(20, length, f_yield, fab_class, thickness=3., p_class=30.)
-    cases[4].add_theoretical_specimen(20, length, f_yield, fab_class, thickness=3., p_class=40.)
-    cases[5].add_theoretical_specimen(20, length, f_yield, fab_class, thickness=2., p_class=50.)
-    cases[6].add_theoretical_specimen(24, length, f_yield, fab_class, thickness=3., p_class=30.)
-    cases[7].add_theoretical_specimen(24, length, f_yield, fab_class, thickness=2., p_class=40.)
-    cases[8].add_theoretical_specimen(24, length, f_yield, fab_class, thickness=2., p_class=50.)
+    cases[0].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=30.)
+    cases[1].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=40.)
+    cases[2].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=50.)
+    cases[3].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=3., p_class=30.)
+    cases[4].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=3., p_class=40.)
+    cases[5].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=2., p_class=50.)
+    cases[6].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=3., p_class=30.)
+    cases[7].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=2., p_class=40.)
+    cases[8].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=2., p_class=50.)
 
     print('Adding real specimens with the 3d scanned data to the polygonal columns.')
     if add_real_specimens:

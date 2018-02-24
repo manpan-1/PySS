@@ -17,9 +17,9 @@ class Plane3D:
 
     A flat plane in the 3 dimensions is expressed in the implicit form, `a*x + b*y + c*z + d = 0`. The vector
     `v = [a, b, c, d]` is here called 'plane coefficients'. A Plane3D object can be created by setting the plane
-    coefficients directly of by fitting on a set of 3D points using the alternative constructor `from_fitting`.
+    coefficients directly or by fitting on a set of 3D points using the alternative constructor `from_fitting`.
 
-    Available operations fot a Plane3D object are:
+    Available operations for a Plane3D object are:
     --- Offset the plane, `offset_plane`.
     --- Return the z value for a given xy pair, `z_return`
     --- Return the intersection line of the plane to a horizontal plane z = z0, `xy_return`
@@ -43,7 +43,7 @@ class Plane3D:
 
         Parameters
         ----------
-        other : Plane3D instance.
+        other : :obj:`Plane3D`
             The plane to intersect with.
 
         Returns

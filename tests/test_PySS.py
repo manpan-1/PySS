@@ -37,7 +37,7 @@ class TestPySS(unittest.TestCase):
         f_yield = 700.
         fab_class = 'fcA'
 
-        case.add_theoretical_specimen(n_sides, length, f_yield, fab_class, p_class=p_class, thickness=thickness)
+        case.set_theoretical_specimen(n_sides, length, f_yield, fab_class, p_class=p_class, thickness=thickness)
 
         # Check geometric properties.
         elem = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
@@ -120,7 +120,7 @@ class TestPySS(unittest.TestCase):
         else:
             datapath = './'
 
-        case.add_theoretical_specimen(n_sides, length, f_yield, fab_class, p_class=p_class, thickness=thickness)
+        case.set_theoretical_specimen(n_sides, length, f_yield, fab_class, p_class=p_class, thickness=thickness)
         case.add_real_specimen(datapath)
 
         # Perform checks

@@ -223,8 +223,6 @@ class Scan3D:
         self.centre = np.r_[x_mid, y_mid, z_mid]
         self.size = np.r_[x_range, y_range, z_range]
 
-        #TODO: fix: the method stopped working after the Point3D implementation. Currently commented.
-
     def plot_points(self, fig=None, reduced=None):
         """
         Method plotting the model as a 3D surface.
@@ -464,18 +462,21 @@ class RoundedEdge(Scan3D):
             else:
                 print('Suspicious circle from fitting ignored at height:    {}'.format(group[0].coords[2]))
 
-    # TODO: Docstrings parameters...
     def calc_edge_points(self, other):
         """
-        Intersect scanned points with a surface between the reference line and a given line.
+        Intersect scanned points with a surface between the theoretical edge line and a given line.
 
         This function is used to find points on the scanned rounded corner. Circles are fitted on the
-        scanned points on different positions. Then the circles are intersected with the line passing through the
-        reference line of the edge and another given line (e.g. the centre of the column). A list of points is
-        generated which represent the real edge of rounded corner.
+        scanned points on different positions. Then the circles are intersected with the theoretical edge and another
+        line specified by the user (e.g. the centre of the column). A list of points is generated which represent the
+        real edge of rounded corner.
 
-        :param other:
-        :return:
+        Parameters
+        ----------
+        other: Line3D object
+            Secondary 3D line used together with the theoretical edge 3D line. The edge circles are intersected with
+            line segments defined by points of those two 3D lines.
+
         """
         if isinstance(other, ag.Line3D):
             self.edge_points = []
