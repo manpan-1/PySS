@@ -104,9 +104,9 @@ class PolygonalColumn:
         corresponding to sides and edges, each file containing point coordinates. The pickle files are assumed to be in
         the same directory and have the following filename structure:
 
-        - files with points of sides: `side_XX.pkl`
-        - files with points od edges: `edge_XX.pkl`
-        - where `XX` is an ascending number starting from 01.
+        - files with points of sides: ``side_XX.pkl``.
+        - files with points od edges: ``edge_XX.pkl``
+        where `XX` is an ascending number starting from 01.
 
         Parameters
         ----------
@@ -475,7 +475,7 @@ class RealSpecimen:
         Import a centre-line to the polygonal object from a pickle file.
 
         The pickle file is expected to contain a list of 2 points from which the line is constructed. This method is
-        used in combination with the equivalent `export` method from blender.
+        used in combination with the equivalent ``export`` method from blender.
 
         Parameters
         ----------
@@ -505,8 +505,8 @@ class RealSpecimen:
 
         Multiple FlatFace instances are created as sides of the polygonal column. A series of files containing scanned
         data points must be given. The files should be on the same path and have a filename structure as:
-        `path/basenameXX.pkl`, where XX is an id number in ascending order starting from 01.
-        Only the `path/basename` is given as input to this method.
+        ``path/basenameXX.pkl``, where ``XX`` is an id number in ascending order starting from 01.
+        Only the ``path/basename`` is given as input to this method.
 
         Parameters
         ----------
@@ -558,10 +558,11 @@ class RealSpecimen:
         Multiple :obj:`scan_3D.RoundedEdge` objects are created as edges of the polygonal column. A series of files
         containing scanned data points must be given. The files should be on the same path and have a filename structure
         as:
-        'path/basenameXX.pkl', where XX is an id number in ascending order starting from 01.
-        Only the 'path/basename' should be given for the 'prefix' input argument. The 'XX.pkl' part is automaticaly set.
+        ``path/basenameXX.pkl``, where ``XX``is an id number in ascending order starting from 01.
+        Only the 'path/basename' should be given for the 'prefix' input argument. The ``XX.pkl`` part is set
+        automatically .
 
-        After adding the sequential edges, if 'intrsct_lines is 'True', the reference lines are calculated as the
+        After adding the sequential edges, if ``intrsct_lines`` is ``True``, the reference lines are calculated as the
         intersections of sequential facets of the polygonal specimen.
 
         Parameters
@@ -630,11 +631,11 @@ class RealSpecimen:
 
         Notes
         -----
-        For the method to function, all edges must contain 'real_edge' and 'ref_lines' attributes.
+        For the method to function, all edges must contain ``real_edge`` and ``ref_lines`` attributes.
 
         See Also
         --------
-        calc_real_edges : Method providing 'real_edge' and 'ref_line'.
+        calc_real_edges : Method providing ``real_edge`` and ``ref_line``.
         calc_facet_imperfection_displacements : Equivalent method for the facet imperfections.
 
         """
@@ -660,11 +661,11 @@ class RealSpecimen:
 
         Notes
         -----
-        For the method to function, all facets need to have 'scanned_data' and 'ref_plane' attributes.
+        For the method to function, all facets need to have ``swarm`` and ``ref_plane`` attributes.
 
         See Also
         --------
-        add_all_sides : Method providing 'scanned_data' and 'ref_plane'.
+        add_all_sides : Method providing ``swarm`` and ``ref_plane``.
         calc_edge_imperfection_displacements : Equivalent method for the edge imperfections.
 
         """
@@ -685,8 +686,8 @@ class RealSpecimen:
         for i in range(-len(self.sides), 0):
             self.sides[i].plot_face(reduced=0.01, fig=fig1)
         for i in self.edges:
-            max_z = max([i.coords[2] for i in i.scanned_data])
-            min_z = min([i.coords[2] for i in i.scanned_data])
+            max_z = max([i.coords[2] for i in i.swarm])
+            min_z = min([i.coords[2] for i in i.swarm])
 
             i.theoretical_edge.plot_line(fig=fig1, ends=[min_z, max_z])
 
@@ -726,8 +727,8 @@ class RealSpecimen:
                       max(np.abs(x.edge2ref_dist)))
 
         # TODO: Fix the following code and add more to the report.
-        # max_z = max([x.scanned_data[:, 2].max() for x in self.sides])
-        # min_z = min([x.scanned_data[:, 2].min() for x in self.sides])
+        # max_z = max([x.swarm[:, 2].max() for x in self.sides])
+        # min_z = min([x.swarm[:, 2].min() for x in self.sides])
         # for i in range(len(self.sides)):
         #     print('Side {} is : {}'.format(i + 1, self.sides[i].ref_plane.plane_coeff))
         #     print('')

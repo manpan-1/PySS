@@ -8,21 +8,18 @@ import numpy as np
 import pickle
 from scipy import odr
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from stl import mesh
+import os
 
 
 class Plane3D:
-    # TODO: Bullet list items in docstring.
     """
     Flat plane in three dimensions.
 
     A flat plane in the 3 dimensions is expressed in the implicit form, `a*x + b*y + c*z + d = 0`. The vector
     `v = [a, b, c, d]` is here called 'plane coefficients'. A Plane3D object can be created by setting the plane
     coefficients directly or by fitting on a set of 3D points using the alternative constructor `from_fitting`.
-
-    Available operations for a Plane3D object are:
-    --- Offset the plane, `offset_plane`.
-    --- Return the z value for a given xy pair, `z_return`
-    --- Return the intersection line of the plane to a horizontal plane z = z0, `xy_return`
 
     Parameters
     ----------
@@ -331,9 +328,9 @@ class Line3D:
 
     A line in the 3 dimensions is expressed by it's direction vector and a point belonging to the line. A Line3D object
     can be constructed in the following ways:
-    --- From a given point and parallel, `from_point_and_parallel`
-    --- From 2 given points, `from_2_points`
-    --- From 2 points loaded from a pickle file, `from_pickle`
+    - From a given point and parallel, `from_point_and_parallel`
+    - From 2 given points, `from_2_points`
+    - From 2 points loaded from a pickle file, `from_pickle`
 
     Parameters
     ----------
@@ -343,7 +340,7 @@ class Line3D:
     Notes
     -----
     Even though an instance of the class can be created directly by giving a point and a parallel vector directly, it is
-    preferred to use the dedicated class method `from_point_and_parallel` because it automatically normalises the
+    preferred to use the dedicated class method :obj:`from_point_and_parallel` because it automatically normalises the
     direction vector.
 
     """
@@ -474,6 +471,36 @@ class Line3D:
         plt.show()
 
         return fig
+
+    def intersect_with_plane(self, plane):
+        """
+        Intersect line with a given plane.
+
+        Parameters
+        ----------
+        plane: :obj:`Plane3D` object
+            Plane with which the line is intersected.
+        Returns
+        -------
+        :obj:`Point3D` object
+
+        """
+        # Calculate the parameter value t0 for which the line coincides with the plane.
+        try:
+            numerator = np.dot(np.append(self.point.coords, [1]), plane.plane_coeff)
+            denominator = np.dot(self.parallel, plane.plane_coeff[:3])
+        except TypeError as ex:
+            print(ex)
+            print('Plane3D object must be given.')
+            return NotImplemented
+
+        t0 = - numerator / denominator
+
+        # Calculate intersection point coordinates.
+        x, y, z = self.parallel * t0 + self.point.coords
+
+        # Create and return a Point3D object
+        return Point3D.from_coordinates(x, y, z)
 
 
 class Line2D:
@@ -662,6 +689,9 @@ class Point3D:
     def __init__(self, coords):
         self.coords = coords
 
+    def __add__(self, other):
+        return Point3D(self.coords + other.coords)
+
     @classmethod
     def from_coordinates(cls, x, y, z):
         """
@@ -725,6 +755,369 @@ class Point3D:
             print('The input object is not of the class `Line3D`')
             return NotImplemented
 
+    def project_on_plane(self, plane):
+        """
+        Project the point on a given plane.
+
+        Parameters
+        ----------
+        plane: :obj:`Plane3D` object
+            Plane on which the point is projected.
+        Returns
+        -------
+        :obj:`Point3D` object
+
+        """
+        # Create a 3D line that passes from the point and is orthogonal to the plane.
+        try:
+            proj_line = Line3D.from_point_and_parallel(self.coords, plane.plane_coeff[:3])
+        except TypeError as ex:
+            print(ex)
+            print('Given input must be Plane3D.')
+            return NotImplemented
+
+        # Intersect the line with the plane and return the point
+        return proj_line.intersect_with_plane(plane)
+
+    def rotate_point(self, rot_ang, rot_ax):
+        """
+        Rotate points for given angle around axis.
+
+        Parameters
+        ----------
+        points : 2d array like
+            List of points[[x0, y0, z0], ...[xn, yn, zn]]
+        rot_ang : float
+            Rotation angle in rads.
+        rot_ax : array like
+            Vector u = [xu, yu, zu] of the axis around which the points are rotated.
+
+        Returns
+        -------
+        ndarray
+            List of points[[x0, y0, z0], ...[xn, yn, zn]]
+
+        """
+        # Rotation matrix
+        sint = np.sin(rot_ang)
+        cost = np.cos(rot_ang)
+        ux, uy, uz = rot_ax
+
+        rot_mtx = np.r_[
+            [[cost + ux ** 2 * (1 - cost), ux * uy * (1 - cost) - uz * sint, ux * uz * (1 - cost) + uy * sint],
+             [uy * ux * (1 - cost) + uz * sint, cost + uy ** 2 * (1 - cost), uy * uz * (1 - cost) - ux * sint],
+             [uz * ux * (1 - cost) - uy * sint, uz * uy * (1 - cost) + ux * sint, cost + uz ** 2 * (1 - cost)]]
+        ]
+
+        # Transform the points.
+        return Point3D(np.dot(self.coords, rot_mtx))
+
+
+class Points3D:
+    """
+    Swarm of 3D points.
+
+    """
+    def __init__(self, swarm=None):
+        self.swarm = swarm
+        self.grouped_data = None
+        self.centre = None
+        self.size = None
+
+    def __iter__(self):
+        return iter(self.swarm)
+
+    def __len__(self):
+        return len(self.swarm)
+
+    @classmethod
+    def from_stl_file(cls, fh, del_original=None):
+        """
+        Import stl file.
+
+        Alternative constructor, creates a Points3D object by reading data from an .stl file. In case the file is created
+        by Creaform's software (it is detected using name of the solid object as described in it's frist line), it is
+        corrected accordingly before importing. The original file is renamed by adding '_old' before the extension or
+        they can be deleted automatically if specified so.
+
+        Parameters
+        ----------
+        fh : str
+            File path.
+        del_original : bool, optional
+            Keep or delete the original file. Default is keep.
+        """
+        with open(fh, 'r') as f:
+            fl = f.readlines(1)[0]
+            identifier = fl.split(None, 1)[1]
+
+        if identifier == 'ASCII STL file generated with VxScan by Creaform.\n':
+            # Repair the file format
+            Points3D.repair_stl_file_structure(fh, del_original=del_original)
+
+        return cls(swarm=Points3D.array2points(mesh.Mesh.from_file(fh)))
+
+    @classmethod
+    def from_pickle(cls, fh):
+        """
+        Method for importing a pickle file containing x, y, z, coordinates.
+
+        Used to import data exported from blender. The pickle file is should contain a list of lists.
+
+        """
+        with open(fh, 'rb') as fh:
+            return cls(swarm=Points3D.array2points(np.array(pickle.load(fh))))
+
+    @classmethod
+    def from_coordinates_file(cls, fh):
+        """
+        Method reading text files containing x, y, z coordinates.
+
+        Used to import data from 3D scanning files.
+        """
+
+        # Open the requested file.
+        with open(fh, 'r') as f:
+            # Number of points.
+            n_of_points = len(f.readlines())
+
+            # Initialise a numpy array for the values.
+            swarm = np.empty([n_of_points, 3])
+
+            # Reset the file read cursor and loop over the lines of the file populating the numpy array.
+            f.seek(0)
+            for i, l in enumerate(f):
+                swarm[i] = l.split()
+
+        return cls(swarm=Points3D.array2points(swarm))
+
+    @staticmethod
+    def repair_stl_file_structure(fh, del_original=None):
+        """
+        Repair header-footer of files created by Creaform's package.
+
+        The .stl files created by Creaform's software are missing standard .stl header and footer. This method will
+        create a copy of the requested file with proper header-footer using the filename (without the extension) as a
+        name of the solid.
+
+        Parameters
+        ----------
+        fh : str
+            File path.
+        del_original : bool, optional
+            Keep or delete the original file. Default is keep.
+        """
+        if del_original is None:
+            del_original = False
+        solid_name = os.path.splitext(os.path.basename(fh))[0]
+
+        start_line = "solid " + solid_name + "\n"
+        end_line = "endsolid " + solid_name
+        old_file = os.path.splitext(fh)[0] + 'old.stl'
+
+        os.rename(fh, old_file)
+        with open(old_file) as fin:
+            lines = fin.readlines()
+        lines[0] = start_line
+        lines.append(end_line)
+
+        with open(fh, 'w') as fout:
+            for line in lines:
+                fout.write(line)
+
+        if del_original:
+            os.remove(old_file)
+
+    @staticmethod
+    def array2points(array):
+        """
+        Convert an array of coordinates to a list of Point3D objects.
+
+        Parameters
+        ----------
+        array : {n*3} np.ndarray
+
+        Returns
+        -------
+        list of Point3D.
+
+        """
+        if isinstance(array, np.ndarray):
+            if np.shape(array)[1] == 3:
+                point_list = []
+                for i in array:
+                    point_list.append(Point3D.from_coordinates(i[0], i[1], i[2]))
+                return point_list
+            else:
+                print('Wrong array dimensions. The array must have 3 columns.')
+                return NotImplemented
+        else:
+            print('Wrong input. Input must be np.ndarray')
+            return NotImplemented
+
+    def sort_on_axis(self, axis=None):
+        """
+        Sort scanned data.
+
+        The scanned points are sorted for a given axis.
+
+        Parameters
+        ----------
+        axis : {0, 1, 2}, optional
+            Axis for which the points are sorted. 0 for `x`, 1 for `y` and 2 for `z`.
+            Default is 0
+
+        """
+        if axis is None:
+            axis = 0
+
+        self.swarm.sort(key=lambda x: x.coords[axis])
+
+    def quantize(self, axis=None, tolerance=None):
+        """
+        Group the scanned data.
+
+        The points with difference on a given axis smaller than the tolerance are grouped together and stored in a list
+        in the attribute `grouped_data`.
+
+        Parameters
+        ----------
+        axis : {0, 1, 2}, optional
+            Axis for which the points are grouped. 0 for `x`, 1 for `y` and 2 for `z`.
+            Default is 0.
+        tolerance : float
+            Distance tolerance for grouping the points.
+
+        """
+        if axis is None:
+            axis = 0
+
+        if tolerance is None:
+            tolerance = 1e-4
+
+        self.sort_on_axis(axis=axis)
+        self.grouped_data = [[self.swarm[0]]]
+        for point in self.swarm:
+            if abs(point.coords[axis] - self.grouped_data[-1][0].coords[axis]) < tolerance:
+                self.grouped_data[-1].append(point)
+            else:
+                self.grouped_data.append([point])
+
+    def centre_size(self):
+        """
+        Get the centre and the range of the data points.
+
+        Used in combination with the plotting methods to define the bounding box.
+        """
+        # Bounding box of the points.
+        x_min = min([i.coords[0] for i in self.swarm])
+        x_max = max([i.coords[0] for i in self.swarm])
+        y_min = min([i.coords[1] for i in self.swarm])
+        y_max = max([i.coords[1] for i in self.swarm])
+        z_min = min([i.coords[2] for i in self.swarm])
+        z_max = max([i.coords[2] for i in self.swarm])
+        x_range = abs(x_max - x_min)
+        y_range = abs(y_max - y_min)
+        z_range = abs(z_max - z_min)
+        x_mid = (x_max + x_min) / 2
+        y_mid = (y_max + y_min) / 2
+        z_mid = (z_min + z_max) / 2
+
+        self.centre = np.r_[x_mid, y_mid, z_mid]
+        self.size = np.r_[x_range, y_range, z_range]
+
+    def translate_swarm(self, vect):
+        """
+        Translate the swarm by a given vector point.
+
+        Parameters
+        ----------
+        vect : :obj:`Point3D`
+            Translation vector.
+
+        """
+        return Points3D(swarm=[p + vect for p in self])
+
+    def rotate_swarm(self, rot_ang, rot_ax):
+        """
+        Rotate points for given angle around axis.
+
+        Parameters
+        ----------
+        rot_ang : float
+            Rotation angle in rads.
+        rot_ax : array like
+            Vector u = [xu, yu, zu] of the axis around which the points are rotated.
+
+        Returns
+        -------
+        :obj:`Points3D`
+            Rotated point swarm.
+
+        """
+        # Transform the points.
+        return Points3D(swarm=[p.rotate_point(rot_ang, rot_ax) for p in self])
+
+    def project_swarm(self, plane):
+        """
+        Project swarm of points on a given plane.
+
+        Parameters
+        ----------
+        plane : :obj:`Plane3D`
+
+        Returns
+        -------
+        :obj:`Points3D`
+
+        """
+        proj_swarm = []
+        for x in self:
+            proj_swarm.append(x.project_on_plane(plane))
+
+        return Points3D(swarm=proj_swarm)
+
+    def plot_swarm(self, fig=None, reduced=None):
+        """
+        Method plotting the model as a 3D surface.
+
+        Parameters
+        ----------
+        fig : Object of class matplotlib.figure.Figure, optional
+            The figure window to be used for plotting. By default, a new window is created.
+        reduced: float, optional
+            A reduced randomly selected subset of points is plotted (in case the data is too dense for plotting). The
+            reduced size is given as a ratio of the total number of points, e.g `reduced=0.5` plots half the points. By
+            default, all points are plotted.
+
+        """
+        # Get a figure to plot on
+        if fig is None:
+            fig = plt.figure()
+            ax = Axes3D(fig)
+        else:
+            ax = fig.get_axes()[0]
+
+        # Make a randomly selected subset of points acc. to the input arg 'reduced=x'.
+        if isinstance(reduced, float) and (0 < reduced < 1):
+            n = list(np.random.choice(
+                len(self.swarm),
+                size=round(len(self.swarm) * reduced),
+                replace=False
+            ))
+        else:
+            n = range(0, len(self.swarm))
+
+        # Create the x, y, z lists
+        x, y, z = [], [], []
+        for i in n:
+            x.append(self.swarm[i].coords[0])
+            y.append(self.swarm[i].coords[1])
+            z.append(self.swarm[i].coords[2])
+
+        # Plot the data
+        ax.scatter(x, y, z, c='r', s=1)
+
 
 def lstsq(points):
     # TODO: Description of the return value
@@ -734,7 +1127,7 @@ def lstsq(points):
 
     Parameters
     ----------
-    points : list of [x, y, z] points
+    points : :obj:`Points3D` object
 
     Returns
     -------
@@ -752,7 +1145,7 @@ def lstsq(points):
     # The vector is normalized so that [a, b, c] has a unit length and `d` is positive.
     return np.r_[c[0], c[1], -1, c[2]] / (np.linalg.norm([c[0], c[1], -1]) * np.sign(c[2]))
 
-
+# TODO: Something fishy is going on in the lstsq_planar_fit: all points seem to be on th esame side of the result plane.
 def lstsq_planar_fit(points, lay_on_xy=False):
     """
     Fit a plane to 3d points.
@@ -764,7 +1157,7 @@ def lstsq_planar_fit(points, lay_on_xy=False):
 
     Parameters
     ----------
-    points : 2d array like
+    points : :obj:`Points3D`
         List of points[[x0, y0, z0], ...[xn, yn, zn]]
     lay_on_xy : bool, optional
         If True, the fitting is performed after the points are rotated to lay parallel to the xy-plane based on an
@@ -780,7 +1173,7 @@ def lstsq_planar_fit(points, lay_on_xy=False):
     if lay_on_xy is None:
         lay_on_xy = False
 
-    # Iterative fitting
+    # Pseudo-orthogonal fit
     if lay_on_xy:
         # Perform least squares fit on the points "as is"
         beta1 = lstsq(points)
@@ -798,15 +1191,16 @@ def lstsq_planar_fit(points, lay_on_xy=False):
         rot_ax = unit_vector(np.r_[v2[1], -v2[0], 0])
 
         # Transform the points so that v2 is aligned to z.
-        transformed = rotate_points(points, rot_ang, rot_ax)
+        transformed = points.rotate_swarm(rot_ang, rot_ax)
 
         # Perform least squares.
         beta2 = lstsq(transformed)
 
         # Return the fitted plane to the original position of the points.
-        beta2[:3] = rotate_points([Point3D(beta2[:3])], -rot_ang, rot_ax)[0].coords
+        beta2[:3] = Point3D(beta2[:3]).rotate_point(-rot_ang, rot_ax).coords
+        print(beta2)
 
-        # Store the fitted plane in the instance.
+        # Return the plane coefficients.
         return beta2
 
     else:
@@ -1065,41 +1459,6 @@ def line3d_fit(points):
     # ax.scatter3D(*data.T)
     # ax.plot3D(*linepts.T)
     # plt.show()
-
-
-# TODO: function should be instead implemented as a method of the Point3D class.
-def rotate_points(points, rot_ang, rot_ax):
-    """
-    Rotate points for given angle around axis.
-
-    Parameters
-    ----------
-    points : 2d array like
-        List of points[[x0, y0, z0], ...[xn, yn, zn]]
-    rot_ang : float
-        Rotation angle in rads.
-    rot_ax : array like
-        Vector u = [xu, yu, zu] of the axis around which the points are rotated.
-
-    Returns
-    -------
-    ndarray
-        List of points[[x0, y0, z0], ...[xn, yn, zn]]
-
-    """
-    # Rotation matrix
-    sint = np.sin(rot_ang)
-    cost = np.cos(rot_ang)
-    ux, uy, uz = rot_ax
-
-    rot_mtx = np.r_[
-        [[cost + ux ** 2 * (1 - cost), ux * uy * (1 - cost) - uz * sint, ux * uz * (1 - cost) + uy * sint],
-         [uy * ux * (1 - cost) + uz * sint, cost + uy ** 2 * (1 - cost), uy * uz * (1 - cost) - ux * sint],
-         [uz * ux * (1 - cost) - uy * sint, uz * uy * (1 - cost) + ux * sint, cost + uz ** 2 * (1 - cost)]]
-    ]
-
-    # Transform the points.
-    return [Point3D(np.dot(p.coords, rot_mtx)) for p in points]
 
 
 def unit_vector(vector):

@@ -77,10 +77,11 @@ class TestPySS(unittest.TestCase):
                   -51.144785309768572)]
 
         self.assertEqual(case.theoretical_specimen.geometry.length, 700.)
-        self.assertEqual(case.theoretical_specimen.geometry.r_circle, 132.79066165555551)
+        self.assertAlmostEqual(case.theoretical_specimen.geometry.r_circle, 132.79066165555551)
         self.assertEqual(case.theoretical_specimen.geometry.thickness, 3.)
-        self.assertEqual(case.theoretical_specimen.geometry.cs_sketch.elem, elem)
-        self.assertEqual(case.theoretical_specimen.geometry.cs_sketch.nodes, nodes)
+        for i, j in zip(case.theoretical_specimen.geometry.cs_sketch.elem, elem):
+            self.assertAlmostEqual(i, j)
+            self.assertAlmostEqual(i, j)
 
         # Check calculations of cross sectional properties.
         self.assertEqual(case.theoretical_specimen.cs_props.area, 2503.0450027345264)
@@ -101,7 +102,6 @@ class TestPySS(unittest.TestCase):
 
     def test_RealSpecimen(self):
         """Test the TheoreticalSpecimen object for a polygonal column"""
-
         # Create a polygonal column object.
         case = pg.PolygonalColumn()
 
@@ -112,7 +112,8 @@ class TestPySS(unittest.TestCase):
         f_yield = 700.
         fab_class = 'fcA'
 
-        cwd = os.getcwd().split(sep='/')[-1]
+        cwd = os.path.split(os.getcwd())[-1]
+        print(cwd)
         if cwd == 'PySS':
             datapath = './tests/test_data/'
         elif cwd == 'tests':
