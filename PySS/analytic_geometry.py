@@ -1145,7 +1145,8 @@ def lstsq(points):
     # The vector is normalized so that [a, b, c] has a unit length and `d` is positive.
     return np.r_[c[0], c[1], -1, c[2]] / (np.linalg.norm([c[0], c[1], -1]) * np.sign(c[2]))
 
-# TODO: Something fishy is going on in the lstsq_planar_fit: all points seem to be on th esame side of the result plane.
+
+# TODO: Something fishy is going on in the lstsq_planar_fit: all points seem to be on the same side of the result plane.
 def lstsq_planar_fit(points, lay_on_xy=False):
     """
     Fit a plane to 3d points.
@@ -1188,7 +1189,7 @@ def lstsq_planar_fit(points, lay_on_xy=False):
         rot_ang = angle_between(v1, v2)
 
         # Find the rotation axis.
-        rot_ax = unit_vector(np.r_[v2[1], -v2[0], 0])
+        rot_ax = unit_vector(np.r_[-v2[1], v2[0], 0])
 
         # Transform the points so that v2 is aligned to z.
         transformed = points.rotate_swarm(rot_ang, rot_ax)
@@ -1198,7 +1199,6 @@ def lstsq_planar_fit(points, lay_on_xy=False):
 
         # Return the fitted plane to the original position of the points.
         beta2[:3] = Point3D(beta2[:3]).rotate_point(-rot_ang, rot_ax).coords
-        print(beta2)
 
         # Return the plane coefficients.
         return beta2

@@ -1106,6 +1106,7 @@ def semi_closed_polygon(n_sides, radius, t, tg, rbend, nbend, l_lip):
 
 def main(
          directory=None,
+         nominal=True,
          add_real_specimens=True,
          add_experimental_data=True,
          make_plots=True,
@@ -1120,33 +1121,44 @@ def main(
         export= directory + 'polygonal.pkl'
 
     # Create a polygonal column object.
+    if nominal:
+        print('Using nominal values for thickness and yield stress.')
+        f_yield = 700.
+        thickness1 = 3.
+        thickness2 = 2.
+    else:
+        print('Using measured values for thickness and yield stress.')
+        #TODO: Calculate the field stress accurately from the coupons using the 0.002 rule.
+        f_yield = 715.
+        thickness1 = 3.0385
+        thickness2 = 1.886
+
     length = 700.
-    f_yield = 700.
     fab_class = 'fcA'
 
     print('Creating the polygonal column objects.')
     cases = [PolygonalColumn(name='specimen{}'.format(i + 1)) for i in range(9)]
 
     print('Adding theoretical specimens with calculations to the polygonal columns')
-    cases[0].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=30.)
-    cases[1].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=40.)
-    cases[2].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=3., p_class=50.)
-    cases[3].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=3., p_class=30.)
-    cases[4].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=3., p_class=40.)
-    cases[5].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=2., p_class=50.)
-    cases[6].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=3., p_class=30.)
-    cases[7].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=2., p_class=40.)
-    cases[8].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=2., p_class=50.)
+    cases[0].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=thickness1, p_class=30.)
+    cases[1].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=thickness1, p_class=40.)
+    cases[2].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=thickness1, p_class=50.)
+    cases[3].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=thickness1, p_class=30.)
+    cases[4].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=thickness1, p_class=40.)
+    cases[5].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=thickness2, p_class=50.)
+    cases[6].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=thickness1, p_class=30.)
+    cases[7].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=thickness2, p_class=40.)
+    cases[8].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=thickness2, p_class=50.)
 
-    print('Adding real specimens with the 3d scanned data to the polygonal columns.')
     if add_real_specimens:
+        print('Adding real specimens with the 3d scanned data to the polygonal columns.')
         for i in range(9):
             print('Adding real scanned shape to specimen number {}'.format(i + 1))
             print(directory + 'sp{}/'.format(i + 1))
             cases[i].add_real_specimen(directory + 'sp{}/'.format(i + 1))
 
-    print('Adding experimental data from the compression tests.')
     if add_experimental_data:
+        print('Adding experimental data from the compression tests.')
         for i in range(9):
             print('Adding experimental data to specimen number {}'.format(i + 1))
             cases[i].add_experiment(directory + 'sp{}/experiment/sp{}.asc'.format(i + 1, i + 1))

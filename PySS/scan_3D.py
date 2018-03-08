@@ -301,8 +301,8 @@ class FlatFace(Scan3D):
         self.ref_plane.offset_plane(offset)
 
         if offset_points:
-            point_list = [ag.Point3D(p.coords + self.ref_plane.plane_coeff[:3] * offset) for p in self.swarm]
-            #self.swarm = np.array(point_list)
+            offsetted_points = self.translate_swarm(ag.Point3D(self.ref_plane.plane_coeff[:3] * offset))
+            self.swarm = offsetted_points.swarm
 
     def calc_face2ref_dist(self):
         """Calculates distances from facet points to the reference plane."""
@@ -342,12 +342,36 @@ class FlatFace(Scan3D):
         rot_ang = ag.angle_between(v1, v2)
 
         # Find the rotation axis.
-        rot_ax = ag.unit_vector(np.r_[v2[1], -v2[0], 0])
+        rot_ax = ag.unit_vector(np.r_[-v2[1], v2[0], 0])
 
         # Lay the projections on xy
         # xy_swarm  = proj_swarm.rotate_swarm(rot_ang, rot_ax)
         transformed = self.rotate_swarm(rot_ang, rot_ax)
-        transformed = transformed.translate_swarm(ag.Point3D.from_coordinates(0, 0, -self.ref_plane.plane_coeff[3]))
+        transformed = transformed.translate_swarm(ag.Point3D.from_coordinates(0, 0, self.ref_plane.plane_coeff[3]))
+
+        # Fit a line on the transformed data to get the direction of the laid down facet.
+        # The direction vector is multiplied by the sign of the y-coordinate so that it is always on quadrants 1 and 2.
+        dir_line = ag.Line3D.from_fitting(transformed.swarm)
+        direction = np.sign(dir_line.parallel[1])*(dir_line.parallel[:2])
+
+        # Calculate the angle of the laid down facet to the x axis.
+        rot_ang2 = ag.angle_between(direction, [1, 0])
+
+        # Rotate the swarm again, this time around the z axis, so that it is aligned with the x axis
+        transformed = transformed.rotate_swarm(rot_ang2, [0, 0, 1])
+
+        # Check the orientation of the transformed swarm: the base of the specimen is always at the origin. Where is the
+        # head of the specimen? (is it around 700 or -700). If it faces negative, rotate by another 180 deg.
+        transformed.centre_size()
+        if transformed.centre[0] < 0:
+            transformed = transformed.rotate_swarm(np.pi, [0, 0, 1])
+
+        # Translate the swarm so that the centre is on the origin. Then, the base of the specimen should be on the
+        # negative and the head on the positive
+        transformed.centre_size()
+        translate_vect = ag.Point3D.from_coordinates(-transformed.centre[0], -transformed.centre[1], 0)
+        transformed = transformed.translate_swarm(translate_vect)
+
         return transformed
 
         # # Extract x amd y lists
@@ -357,6 +381,26 @@ class FlatFace(Scan3D):
         #     y.append(point.coords[1])
         #
         # return [x, y, z]
+
+    def plot_on_lcsys(self):
+        """
+        Initial imperfection contour field.
+
+        Plot a contour field of the initial imperfections on the local coordinate system of the flat face. For the
+        initial imperfections see :obj:`calc_face2ref_dist`. The contour of the initial imperfections (distance of the
+        face points to the reference plane) is plotted on the local coordinate system of the face, on which the
+        reference plane of the face is the xy plane and the initial distances are the z-values.
+
+        """
+        lcsys_dist = self.calc_local_csys()
+        x, y, z = [], [], []
+        for i in lcsys_dist.swarm:
+            x.append(i.coords[0])
+            y.append(i.coords[1])
+            z.append(i.coords[2])
+
+        plt.tripcolor(x, y, z)
+        plt.colorbar()
 
     def plot_face(self, fig=None, reduced=None):
         """

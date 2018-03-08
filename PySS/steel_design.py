@@ -227,7 +227,7 @@ class CsProps:
             moi_2=moi_2
         )
 
-
+# TODO: check the plastic table values. expand the library
 class Material:
     """
     Material properties.
@@ -462,7 +462,7 @@ def n_pl_rd(
 
     # Aeff calculation.
     # Reduction factor for the effective area of the profile acc. to EC3-1-5
-    classification = width / (thickness * np.sqrt(235 / f_yield))
+    classification = width / (thickness * np.sqrt(235. / f_yield))
     lambda_p = classification / (28.4 * np.sqrt(k_sigma))
     if lambda_p > 0.673 and plate_class(thickness, width, f_yield) == 4:
         rho = (lambda_p - 0.055 * (3 + psi)) / lambda_p ** 2
