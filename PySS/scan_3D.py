@@ -614,7 +614,14 @@ class RoundedEdge(Scan3D):
     def calc_edge2ref_dist(self):
         """Calculate distances of edge points to the reference line."""
         if self.ref_line and self.ref_line is not NotImplemented:
-            self.edge2ref_dist = []
+
+            # Get the relative position of the first point on the reference edge line. This will be used as origin for
+            # for the projected edge points on the reference line.
+            origin = np.dot(self.ref_line.parallel, self.edge_points[0].coords)
+
+            position = []
+            distance = []
+
             for x in self.edge_points:
                 # Find the distances from the the real edge and the ref line points to the (0, 0). Based on which one is
                 # further away from the origin, the sign of the distance is assigned
@@ -623,13 +630,27 @@ class RoundedEdge(Scan3D):
                 s = np.sign(edge - refp)
 
                 # calculate the distance of the edge point to the ref line and give this distance the sign calculated.
-                self.edge2ref_dist.append(s * x.distance_to_line(self.ref_line))
+                distance.append(s * x.distance_to_line(self.ref_line))
+
+                # calculate the position of the projected real edge point on the reference line, using as origin the
+                # projection of the first point (see above).
+                position.append(abs(origin - np.dot(self.ref_line.parallel, x.coords)))
+
+            # assign positions and distances on the parent object
+            self.edge2ref_dist = [position, distance]
+
 
         else:
             print('No reference line. First, add a reference line to the object. Check if the fitting process on the '
                   'edge points converged. Edge ignored.')
             return NotImplemented
 
+    def plot_imp(self):
+        if self.edge2ref_dist:
+            plt.plot(self.edge2ref_dist[0], self.edge2ref_dist[1])
+        else:
+            print('No information for distances between edge points and reference line. Try the calc_edge2ref_dist '
+                  'method.')
 
 def main():
     print('Module successfully loaded.')
