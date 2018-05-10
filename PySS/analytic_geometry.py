@@ -513,7 +513,7 @@ class Line2D:
     -- From 2 points,
     -- from point and parallel vector,
     -- from the expression coefficients, given as a vector [a, b, c]
-    To create a Line2D object, use one of the three `from_...` class methods.
+    To create a Line2D object, use one of the four 'from_...' class methods.
 
     Parameters
     ----------
@@ -823,6 +823,7 @@ class Points3D:
         self.grouped_data = None
         self.centre = None
         self.size = None
+        self.lims = None
 
     def __iter__(self):
         return iter(self.swarm)
@@ -1003,11 +1004,12 @@ class Points3D:
             else:
                 self.grouped_data.append([point])
 
-    def centre_size(self):
+    def calc_csl(self):
         """
-        Get the centre and the range of the data points.
+        Calculate centre, size and limits of the swarm.
 
-        Used in combination with the plotting methods to define the bounding box.
+        The results are assigned to the equivalent attributes self.centre, self.size, self.lims.
+
         """
         # Bounding box of the points.
         x_min = min([i.coords[0] for i in self.swarm])
@@ -1025,6 +1027,7 @@ class Points3D:
 
         self.centre = np.r_[x_mid, y_mid, z_mid]
         self.size = np.r_[x_range, y_range, z_range]
+        self.lims = np.r_[[[x_min, x_max], [y_min, y_max], [z_min, z_max]]]
 
     def translate_swarm(self, vect):
         """
@@ -1117,6 +1120,30 @@ class Points3D:
 
         # Plot the data
         ax.scatter(x, y, z, c='r', s=1)
+
+    def get_xs(self):
+        """Return an array of the `x` coordinates."""
+        xs = []
+        for i in self:
+            xs.append(i.coords[0])
+
+        return np.array(xs)
+
+    def get_ys(self):
+        """Return an array of the `y` coordinates."""
+        ys = []
+        for i in self:
+            ys.append(i.coords[1])
+
+        return np.array(ys)
+
+    def get_zs(self):
+        """Return an array of the `z` coordinates."""
+        zs = []
+        for i in self:
+            zs.append(i.coords[2])
+
+        return np.array(zs)
 
 
 def lstsq(points):

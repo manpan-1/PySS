@@ -8,259 +8,28 @@ import numpy as np
 from PySS import analytic_geometry as ag
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import scipy.interpolate as intrp
 
-# TODO: Useless class, either delete OR transfer relative functionality from ag.Points3D (possibly remove stl from ag)
-class Scan3D(ag.Points3D):
-    """
-    3D model data.
 
-    Class of 3D objects. Can be imported from an .stl file of a .txt file of list of node coordinates.
+class Scan3D:
+    def __init__(self, points_wcsys=None):
+        self.points_wcsys = points_wcsys
 
-    """
+    @classmethod
+    def from_pickle(cls, fh):
+        """
+        Create object by loading points on the world csys from an stl.
 
-    def __init__(self, swarm=None):
-        super().__init__(swarm=swarm)
-    #
-    #     self.grouped_data = None
-    #     self.centre = None
-    #     self.size = None
-    #
-    # @classmethod
-    # def from_stl_file(cls, fh, del_original=None):
-    #     """
-    #     Import stl file.
-    #
-    #     Alternative constructor, creates a Scan3D object by reading data from an .stl file. In case the file is created
-    #     by Creaform's software (it is detected using name of the solid object as described in it's frist line), it is
-    #     corrected accordingly before importing. The original file is renamed by adding '_old' before the extension or
-    #     they can be deleted automatically if specified so.
-    #
-    #     Parameters
-    #     ----------
-    #     fh : str
-    #         File path.
-    #     del_original : bool, optional
-    #         Keep or delete the original file. Default is keep.
-    #     """
-    #     with open(fh, 'r') as f:
-    #         fl = f.readlines(1)[0]
-    #         identifier = fl.split(None, 1)[1]
-    #
-    #     if identifier == 'ASCII STL file generated with VxScan by Creaform.\n':
-    #         # Repair the file format
-    #         Scan3D.repair_stl_file_structure(fh, del_original=del_original)
-    #
-    #     return cls(swarm=Scan3D.array2points(mesh.Mesh.from_file(fh)))
-    #
-    # @classmethod
-    # def from_pickle(cls, fh):
-    #     """
-    #     Method for importing a pickle file containing x, y, z, coordinates.
-    #
-    #     Used to import data exported from blender. The pickle file is should contain a list of lists.
-    #
-    #     """
-    #     with open(fh, 'rb') as fh:
-    #         return cls(swarm=Scan3D.array2points(np.array(pickle.load(fh))))
-    #
-    # @classmethod
-    # def from_coordinates_file(cls, fh):
-    #     """
-    #     Method reading text files containing x, y, z coordinates.
-    #
-    #     Used to import data from 3D scanning files.
-    #     """
-    #
-    #     # Open the requested file.
-    #     with open(fh, 'r') as f:
-    #         # Number of points.
-    #         n_of_points = len(f.readlines())
-    #
-    #         # Initialise a numpy array for the values.
-    #         swarm = np.empty([n_of_points, 3])
-    #
-    #         # Reset the file read cursor and loop over the lines of the file populating the numpy array.
-    #         f.seek(0)
-    #         for i, l in enumerate(f):
-    #             swarm[i] = l.split()
-    #
-    #     return cls(swarm=Scan3D.array2points(swarm))
-    #
-    # @staticmethod
-    # def repair_stl_file_structure(fh, del_original=None):
-    #     """
-    #     Repair header-footer of files created by Creaform's package.
-    #
-    #     The .stl files created by Creaform's software are missing standard .stl header and footer. This method will
-    #     create a copy of the requested file with proper header-footer using the filename (without the extension) as a
-    #     name of the solid.
-    #
-    #     Parameters
-    #     ----------
-    #     fh : str
-    #         File path.
-    #     del_original : bool, optional
-    #         Keep or delete the original file. Default is keep.
-    #     """
-    #     if del_original is None:
-    #         del_original = False
-    #     solid_name = os.path.splitext(os.path.basename(fh))[0]
-    #
-    #     start_line = "solid " + solid_name + "\n"
-    #     end_line = "endsolid " + solid_name
-    #     old_file = os.path.splitext(fh)[0] + 'old.stl'
-    #
-    #     os.rename(fh, old_file)
-    #     with open(old_file) as fin:
-    #         lines = fin.readlines()
-    #     lines[0] = start_line
-    #     lines.append(end_line)
-    #
-    #     with open(fh, 'w') as fout:
-    #         for line in lines:
-    #             fout.write(line)
-    #
-    #     if del_original:
-    #         os.remove(old_file)
-    #
-    # @staticmethod
-    # def array2points(array):
-    #     """
-    #     Convert an array of coordinates to a list of Point3D objects.
-    #
-    #     Parameters
-    #     ----------
-    #     array : {n*3} np.ndarray
-    #
-    #     Returns
-    #     -------
-    #     list of Point3D.
-    #
-    #     """
-    #     if isinstance(array, np.ndarray):
-    #         if np.shape(array)[1] == 3:
-    #             point_list = []
-    #             for i in array:
-    #                 point_list.append(ag.Point3D.from_coordinates(i[0], i[1], i[2]))
-    #             return point_list
-    #         else:
-    #             print('Wrong array dimensions. The array must have 3 columns.')
-    #             return NotImplemented
-    #     else:
-    #         print('Wrong input. Input must be np.ndarray')
-    #         return NotImplemented
-    #
-    # def sort_on_axis(self, axis=None):
-    #     """
-    #     Sort scanned data.
-    #
-    #     The scanned points are sorted for a given axis.
-    #
-    #     Parameters
-    #     ----------
-    #     axis : {0, 1, 2}, optional
-    #         Axis for which the points are sorted. 0 for `x`, 1 for `y` and 2 for `z`.
-    #         Default is 0
-    #
-    #     """
-    #     if axis is None:
-    #         axis = 0
-    #
-    #     self.swarm.sort(key=lambda x: x.coords[axis])
-    #
-    # def quantize(self, axis=None, tolerance=None):
-    #     """
-    #     Group the scanned data.
-    #
-    #     The points with difference on a given axis smaller than the tolerance are grouped together and stored in a list
-    #     in the attribute `grouped_data`.
-    #
-    #     Parameters
-    #     ----------
-    #     axis : {0, 1, 2}, optional
-    #         Axis for which the points are grouped. 0 for `x`, 1 for `y` and 2 for `z`.
-    #         Default is 0.
-    #     tolerance : float
-    #         Distance tolerance for grouping the points.
-    #
-    #     """
-    #     if axis is None:
-    #         axis = 0
-    #
-    #     if tolerance is None:
-    #         tolerance = 1e-4
-    #
-    #     self.sort_on_axis(axis=axis)
-    #     self.grouped_data = [[self.swarm[0]]]
-    #     for point in self.swarm:
-    #         if abs(point.coords[axis] - self.grouped_data[-1][0].coords[axis]) < tolerance:
-    #             self.grouped_data[-1].append(point)
-    #         else:
-    #             self.grouped_data.append([point])
-    #
-    # def centre_size(self):
-    #     """
-    #     Get the centre and the range of the data points.
-    #
-    #     Used in combination with the plotting methods to define the bounding box.
-    #     """
-    #     # Bounding box of the points.
-    #     x_min = min([i.coords[0] for i in self.swarm])
-    #     x_max = max([i.coords[0] for i in self.swarm])
-    #     y_min = min([i.coords[1] for i in self.swarm])
-    #     y_max = max([i.coords[1] for i in self.swarm])
-    #     z_min = min([i.coords[2] for i in self.swarm])
-    #     z_max = max([i.coords[2] for i in self.swarm])
-    #     x_range = abs(x_max - x_min)
-    #     y_range = abs(y_max - y_min)
-    #     z_range = abs(z_max - z_min)
-    #     x_mid = (x_max + x_min) / 2
-    #     y_mid = (y_max + y_min) / 2
-    #     z_mid = (z_min + z_max) / 2
-    #
-    #     self.centre = np.r_[x_mid, y_mid, z_mid]
-    #     self.size = np.r_[x_range, y_range, z_range]
-    #
-    # def plot_points(self, fig=None, reduced=None):
-    #     """
-    #     Method plotting the model as a 3D surface.
-    #
-    #     Parameters
-    #     ----------
-    #     fig : Object of class matplotlib.figure.Figure, optional
-    #         The figure window to be used for plotting. By default, a new window is created.
-    #     reduced: float, optional
-    #         A reduced randomly selected subset of points is plotted (in case the data is too dense for plotting). The
-    #         reduced size is given as a ratio of the total number of points, e.g `reduced=0.5` plots half the points. By
-    #         default, all points are plotted.
-    #
-    #     """
-    #     # Get a figure to plot on
-    #     if fig is None:
-    #         fig = plt.figure()
-    #         ax = Axes3D(fig)
-    #     else:
-    #         ax = fig.get_axes()[0]
-    #
-    #     # Make a randomly selected subset of points acc. to the input arg 'reduced=x'.
-    #     if isinstance(reduced, float) and (0 < reduced < 1):
-    #         n = list(np.random.choice(
-    #             len(self.swarm),
-    #             size=round(len(self.swarm) * reduced),
-    #             replace=False
-    #         ))
-    #     else:
-    #         n = range(0, len(self.swarm))
-    #
-    #     # Create the x, y, z lists
-    #     x, y, z = [], [], []
-    #     for i in n:
-    #         x.append(self.swarm[i].coords[0])
-    #         y.append(self.swarm[i].coords[1])
-    #         z.append(self.swarm[i].coords[2])
-    #
-    #     # Plot the data
-    #     ax.scatter(x, y, z, c='r', s=1)
+        Parameters
+        ----------
+        fh : str
+            Path to the stl file.
+
+        Returns
+        -------
+
+        """
+        return cls(points_wcsys=ag.Points3D.from_pickle(fh))
 
 
 class FlatFace(Scan3D):
@@ -271,57 +40,20 @@ class FlatFace(Scan3D):
 
     """
 
-    def __init__(self, swarm=None):
+    def __init__(self, points_wcsys=None):
+        self.points_lcsys = None
         self.face2ref_dist = None
         self.ref_plane = None
-        self.local_csys = None
+        self.regular_grid = None
 
-        super().__init__(swarm)
+        super().__init__(points_wcsys=points_wcsys)
 
-    def fit_plane(self):
+    def local_from_world(self):
         """
-        Fit a plane on the scanned data.
+        Add a local coordinate object based on the world object.
 
-        The Plane3D object is assigned in the `self.ref_plane`. The fitted plane is returned using the
-        analytic_geometry.lstsq_planar_fit with the optional argument lay_on_xy=True. See
-        analytic_geometry.lstsq_planar_fit documentation.
-        """
-        self.ref_plane = ag.Plane3D.from_fitting(self, lay_on_xy=True)
-
-    def offset_face(self, offset, offset_points=False):
-        """
-        Offset the plane and (optionally) the scanned data points.
-
-        Useful for translating translating the scanned surface to the mid line.
-
-        :param offset:
-        :param offset_points:
-        :return:
-        """
-        self.ref_plane.offset_plane(offset)
-
-        if offset_points:
-            offsetted_points = self.translate_swarm(ag.Point3D(self.ref_plane.plane_coeff[:3] * offset))
-            self.swarm = offsetted_points.swarm
-
-    def calc_face2ref_dist(self):
-        """Calculates distances from facet points to the reference plane."""
-        if self.ref_plane:
-            self.face2ref_dist = []
-            for x in self.swarm:
-                self.face2ref_dist.append(x.distance_to_plane(self.ref_plane))
-
-    def calc_local_csys(self):
-        """
-        Calculate point grid on the local coordinate system of the reference plane.
-
+        Add :obj:`ag.Points3D` grid on the local coordinate system of the reference plane.
         The scanned points are projected on the reference plane and the projections are rotated to lie on xy-plane.
-
-        Returns
-        -------
-        x, y : lst of float
-            Coordinate lists of the local grid.
-
         """
         # # Check if face2ref exists (The check is performed with an if in the beginning of the method to avoid unnecessary
         # #  calculations)
@@ -346,7 +78,7 @@ class FlatFace(Scan3D):
 
         # Lay the projections on xy
         # xy_swarm  = proj_swarm.rotate_swarm(rot_ang, rot_ax)
-        transformed = self.rotate_swarm(rot_ang, rot_ax)
+        transformed = self.points_wcsys.rotate_swarm(rot_ang, rot_ax)
         transformed = transformed.translate_swarm(ag.Point3D.from_coordinates(0, 0, self.ref_plane.plane_coeff[3]))
 
         # Fit a line on the transformed data to get the direction of the laid down facet.
@@ -362,45 +94,51 @@ class FlatFace(Scan3D):
 
         # Check the orientation of the transformed swarm: the base of the specimen is always at the origin. Where is the
         # head of the specimen? (is it around 700 or -700). If it faces negative, rotate by another 180 deg.
-        transformed.centre_size()
+        transformed.calc_csl()
         if transformed.centre[0] < 0:
             transformed = transformed.rotate_swarm(np.pi, [0, 0, 1])
 
         # Translate the swarm so that the centre is on the origin. Then, the base of the specimen should be on the
         # negative and the head on the positive
-        transformed.centre_size()
+        transformed.calc_csl()
         translate_vect = ag.Point3D.from_coordinates(-transformed.centre[0], -transformed.centre[1], 0)
         transformed = transformed.translate_swarm(translate_vect)
 
-        return transformed
+        self.points_lcsys = transformed
+        self.points_lcsys.calc_csl()
 
-        # # Extract x amd y lists
-        # x, y = [], []
-        # for point in xy_swarm:
-        #     x.append(point.coords[0])
-        #     y.append(point.coords[1])
-        #
-        # return [x, y, z]
-
-    def plot_on_lcsys(self):
+    def fit_plane(self):
         """
-        Initial imperfection contour field.
+        Fit a plane on the scanned data (WCS).
 
-        Plot a contour field of the initial imperfections on the local coordinate system of the flat face. For the
-        initial imperfections see :obj:`calc_face2ref_dist`. The contour of the initial imperfections (distance of the
-        face points to the reference plane) is plotted on the local coordinate system of the face, on which the
-        reference plane of the face is the xy plane and the initial distances are the z-values.
-
+        The Plane3D object is assigned in the `self.ref_plane`. The fitted plane is returned using the
+        analytic_geometry.lstsq_planar_fit with the optional argument lay_on_xy=True. See
+        analytic_geometry.lstsq_planar_fit documentation.
         """
-        lcsys_dist = self.calc_local_csys()
-        x, y, z = [], [], []
-        for i in lcsys_dist.swarm:
-            x.append(i.coords[0])
-            y.append(i.coords[1])
-            z.append(i.coords[2])
+        self.ref_plane = ag.Plane3D.from_fitting(self.points_wcsys, lay_on_xy=True)
 
-        plt.tripcolor(x, y, z)
-        plt.colorbar()
+    def offset_face(self, offset, offset_points=False):
+        """
+        Offset the plane and (optionally) the scanned data points (WCS).
+
+        Useful for translating translating the scanned surface to the mid line.
+
+        :param offset:
+        :param offset_points:
+        :return:
+        """
+        self.ref_plane.offset_plane(offset)
+
+        if offset_points:
+            offsetted_points = self.points_wcsys.translate_swarm(ag.Point3D(self.ref_plane.plane_coeff[:3] * offset))
+            self.points_wcsys.swarm = offsetted_points.swarm
+
+    def calc_face2ref_dist(self):
+        """Calculates distances from facet points to the reference plane."""
+        if self.ref_plane:
+            self.face2ref_dist = []
+            for point in self.points_wcsys:
+                self.face2ref_dist.append(point.distance_to_plane(self.ref_plane))
 
     def plot_face(self, fig=None, reduced=None):
         """
@@ -415,9 +153,10 @@ class FlatFace(Scan3D):
 
         """
 
+        #TODO: continue
         # Average and range of the points.
-        self.centre_size()
-        plot_dim = max(self.size[0], self.size[1], self.size[2])
+        self.points_wcsys.calc_csl()
+        plot_dim = max(self.points_wcsys.size[0], self.points_wcsys.size[1], self.points_wcsys.size[2])
 
         # Get a figure to plot on
         if fig is None:
@@ -427,9 +166,9 @@ class FlatFace(Scan3D):
             ax = fig.get_axes()[0]
 
         # Plot scanned points
-        if self.swarm:
+        if self.points_wcsys.swarm:
             print('Plotting scanned points')
-            self.plot_swarm(fig=fig, reduced=reduced)
+            self.points_wcsys.plot_swarm(fig=fig, reduced=reduced)
         else:
             print('No scanned points to plot.')
 
@@ -438,14 +177,17 @@ class FlatFace(Scan3D):
             print('Plotting plane.')
             # Create a grid for for xy
             # get height and width (z and x axes) limits from points
-            x_lims = [self.centre[0] - self.size[0] / 2., self.centre[0] + self.size[0] / 2.]
-            y_lims = [self.centre[1] - self.size[1] / 2., self.centre[1] + self.size[1] / 2.]
-            z_lims = [self.centre[2] - self.size[2] / 2., self.centre[2] + self.size[2] / 2.]
+            x_lims = [self.points_wcsys.centre[0] - self.points_wcsys.size[0] / 2.,
+                      self.points_wcsys.centre[0] + self.points_wcsys.size[0] / 2.]
+            y_lims = [self.points_wcsys.centre[1] - self.points_wcsys.size[1] / 2.,
+                      self.points_wcsys.centre[1] + self.points_wcsys.size[1] / 2.]
+            z_lims = [self.points_wcsys.centre[2] - self.points_wcsys.size[2] / 2.,
+                      self.points_wcsys.centre[2] + self.points_wcsys.size[2] / 2.]
 
             ll1 = self.ref_plane.xy_return(z_lims[0])
             ll2 = self.ref_plane.xy_return(z_lims[1])
 
-            if self.size[0]>self.size[1]:
+            if self.points_wcsys.size[0]>self.points_wcsys.size[1]:
                 y1 = ll1.y_for_x(x_lims[0])
                 y2 = ll1.y_for_x(x_lims[1])
                 y3 = ll2.y_for_x(x_lims[0])
@@ -480,13 +222,104 @@ class FlatFace(Scan3D):
         plt.xlabel('x')
         plt.ylabel('y')
         ax.set_zlabel('z')
-        ax.set_xlim3d(self.centre[0] - plot_dim / 2, self.centre[0] + plot_dim / 2)
-        ax.set_ylim3d(self.centre[1] - plot_dim / 2, self.centre[1] + plot_dim / 2)
-        ax.set_zlim3d(self.centre[2] - plot_dim / 2, self.centre[2] + plot_dim / 2)
+        ax.set_xlim3d(self.points_wcsys.centre[0] - plot_dim / 2, self.points_wcsys.centre[0] + plot_dim / 2)
+        ax.set_ylim3d(self.points_wcsys.centre[1] - plot_dim / 2, self.points_wcsys.centre[1] + plot_dim / 2)
+        ax.set_zlim3d(self.points_wcsys.centre[2] - plot_dim / 2, self.points_wcsys.centre[2] + plot_dim / 2)
         plt.show()
 
         # Return the figure handle.
         return fig
+
+    def regulate_imperf(self):
+        """
+        Re-sample the list of imperfection displacements on a regular 2D grid.
+        """
+        # Re-mesh flat face local coordinates on a regular grid
+        points = np.column_stack([self.points_lcsys.get_xs(), self.points_lcsys.get_ys()])
+        values = self.points_lcsys.get_zs()
+        l_x = self.points_lcsys.size[0]
+        l_y = self.points_lcsys.size[1]
+        n_tot = len(self.points_lcsys)
+        n_x = np.ceil(np.sqrt(n_tot * l_x / l_y))
+        n_y = np.ceil(np.sqrt(n_tot * l_y / l_x))
+
+        step = min([l_x / n_x, l_y / n_y])
+
+        grid_x, grid_y = np.meshgrid(
+            np.arange(
+                self.points_lcsys.lims[0][0],
+                self.points_lcsys.lims[0][1],
+                step=step),
+            np.arange(
+                self.points_lcsys.lims[1][0],
+                self.points_lcsys.lims[1][1],
+                step=step))
+
+        grid_z = intrp.griddata(points, values, (grid_x, grid_y), method='nearest')
+
+        self.regular_grid = [grid_x, grid_y, grid_z]
+
+    def fft(self):
+        """
+        Perform 3D fourier
+        """
+        # Initialise an empty array
+        field = self.regular_grid[2]
+
+        # Number of samples on each direction
+        n_x, n_y = field.shape[1], field.shape[0]
+
+        # Perform 2D fourier and shift the result to centre
+        freq = np.fft.fft2(field)
+
+        # Calculate the magnitude and phase spectra. Keep only half symmetric results on each axis.
+        magnitude_log_spectrum = np.log(np.abs(freq))[:n_y // 2, :n_x // 2]
+        magnitude_spectrum = np.abs(freq)[:n_y // 2, :n_x // 2]
+        phase_spectrum = np.angle(freq)[:n_y // 2, :n_x // 2]
+
+        # Reconstruct the initial field
+        #re_field = np.real(np.fft.ifft2(freq))
+
+        # Max amp waves
+        max_waves = []
+        temp_mag_field = magnitude_spectrum[:5, :10]
+        for i in range(10):
+            cur_max = np.unravel_index(temp_mag_field.argmax(), temp_mag_field.shape)
+            max_waves.append([cur_max, temp_mag_field[cur_max]])
+            temp_mag_field[cur_max] = 0
+
+        print("Max waves :")
+        print(max_waves)
+
+        # Plot
+        fig = plt.figure()
+
+        fig.add_subplot(411)
+        plt.imshow(field, cmap='gray')
+        plt.title('Field'), plt.xticks([]), plt.yticks([])
+        plt.colorbar()
+
+        fig.add_subplot(412)
+        plt.imshow(magnitude_log_spectrum, cmap='gray')
+        plt.title('Magnitude spectrum')
+
+        fig.add_subplot(413)
+        plt.imshow(phase_spectrum, cmap='gray')
+        plt.title('Phase spectrum')
+
+        fig.add_subplot(414)
+        plt.imshow(magnitude_log_spectrum[:15, :15], cmap='gray')
+        plt.title('Magnitude spectrum zoom')
+        plt.colorbar()
+
+        # surface plot
+        mini_x, mini_y = np.meshgrid(
+            np.arange(0, temp_mag_field.shape[1]),
+            np.arange(0, temp_mag_field.shape[0]))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(mini_x, mini_y, temp_mag_field)
 
 
 class RoundedEdge(Scan3D):
@@ -495,14 +328,14 @@ class RoundedEdge(Scan3D):
 
     """
 
-    def __init__(self, swarm=None):
+    def __init__(self, points_wcsys=None):
         self.theoretical_edge = None
         self.edge_points = None
         self.circles = None
         self.edge2ref_dist = None
         self.ref_line = None
 
-        super().__init__(swarm)
+        super().__init__(points_wcsys=points_wcsys)
 
     def add_theoretical_edge(self, line):
         """
@@ -542,9 +375,9 @@ class RoundedEdge(Scan3D):
         if offset is None:
             offset = 0
 
-        self.quantize(axis=axis)
+        self.points_wcsys.quantize(axis=axis)
         self.circles = []
-        for group in self.grouped_data:
+        for group in self.points_wcsys.grouped_data:
             circle = ag.Circle2D.from_fitting(group)
             if all([np.linalg.norm(i.coords[:2]) > np.linalg.norm(circle.centre) for i in group]):
                 self.circles.append(circle)
@@ -651,6 +484,82 @@ class RoundedEdge(Scan3D):
         else:
             print('No information for distances between edge points and reference line. Try the calc_edge2ref_dist '
                   'method.')
+
+    #TODO: docstring
+    def fft(self):
+        """
+        Perform fft on the edge points (imperfections).
+        """
+        # Create a linear space for equally distributed samples
+        n_of_samples = len(self.edge2ref_dist[0])
+        edge_length = self.edge2ref_dist[0][-1]
+        t = np.linspace(0, edge_length, n_of_samples, endpoint=True)
+
+        # Print information
+        dt = t[1] - t[0]
+        fa = 1.0 / dt  # scan frequency
+        print('dt=%.5f mm (Sampling distance)' % dt)
+        print('fa=%.2f samples/mm' % fa)
+
+        # Displacement values (the signal)
+        s = self.edge2ref_dist[1]
+
+        # Perform fft without windowing
+        Y = np.fft.fft(s)
+        N = n_of_samples // 2 + 1
+
+        # Frequency domain x-Axis with 'frequencies' up to Nyquist
+        X = edge_length * np.linspace(0, fa / 2, N, endpoint=True)
+
+        # Perform fft with windowing
+        # Window functions: Choose one of the three
+        hann = np.hanning(len(s))
+        hamm = np.hamming(len(s))
+        black = np.blackman(len(s))
+
+        Yhann = np.fft.fft(hann * s)
+        Yhamm = np.fft.fft(hamm * s)
+        Yblack = np.fft.fft(black * s)
+
+        # Plot all
+        plt.figure(figsize=(7, 3))
+
+        plt.subplot(241)
+        plt.plot(t, s)
+        plt.title('No windowing')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(242)
+        plt.plot(t, s * hann)
+        plt.title('Hanning')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(243)
+        plt.plot(t, s * hamm)
+        plt.title('Hamming')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(244)
+        plt.plot(t, s * black)
+        plt.title('Blackman')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(245)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Y[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
+        plt.subplot(246)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
+        plt.subplot(247)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
+        plt.subplot(248)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
 
 def main():
     print('Module successfully loaded.')

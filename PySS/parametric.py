@@ -2,51 +2,18 @@ from itertools import product
 from shutil import rmtree
 from time import sleep
 from random import random
-from math import sqrt
 import os
-
-
-# Return a list with all the divisors of a numbers
-def divisors(n):
-    """
-    Divisors of an integer.
-
-    Return all the possible divisors for a given integer.
-
-    Parameters
-    ----------
-    n: int
-
-    Returns
-    -------
-    int
-
-    Notes
-    -----
-
-    """
-    large_divisors = []
-    for i in range(1, int(sqrt(n) + 1)):
-        if n % i == 0:
-            yield i
-            if i * i != n:
-                large_divisors.append(n / i)
-    for divisor in reversed(large_divisors):
-        yield divisor
-
-
-# range(6, 31, 2),
-# range(27, 55, 3),
 
 def parametric_run(
     prj_name,
     exec_func,
-    func_args,
-    param_indices=None,
+    func_args=None,
+    func_kargs=None,
+    p_args=None,
+    p_kargs=None,
     mk_subdirs=None,
     del_subdirs=None,
     delay_jobs=None,
-    **kwargs
 ):
     """
     Run a parametric job.
@@ -55,7 +22,6 @@ def parametric_run(
     values is needed for each parameter.
     Each job is executed in a different automatically created subdirectory and a summary of the results is written in
     parent directory.
-    REFRESH-EXTEND DOCSTRING
 
     Parameters
     ----------
@@ -63,13 +29,15 @@ def parametric_run(
         Name of the parametric project. Used for directory name and filenames.
     exec_func : function name
         Function to be executed parametrically.
-    func_args : list
+    func_args : list, optional
         A list containing the arguments to be passed to the function, both parametric and static.
-    param_indices : list, optional
+    func_kargs : dict, optional
+        A dictionaty of all the keyword arguments to be passed to the function, both parametric and static.
+    p_args : list of integers, optional
         A list of integers, indicating the positions on the func_args list of the arguments for which the parametric
-        matrix is composed. The func_args list must contain a list type on the positions described by param_indices.
-        Default behaviour assumes that all of the arguments contained in func_args are participating in the construction
-        of the parametric matrix and thus, it expects that func_args contains only lists (func_args = list of lists).
+        matrix is composed. On the positions indicated by p_args, the func_args must contain list items.
+    p_kargs : list of strings, optional
+        A list of the keys of all the keyword arguments that need to be executed parametrically, similarly to p_args.
     mk_subdirs : bool, optional
         Perform each execution in a separate subdirectory.
         Useful when the executed job generates files on the working directory.
@@ -88,13 +56,10 @@ def parametric_run(
     list
         List item containing the results of all the executed runs
 
-    Notes
-    -----
-
     """
     # Defaults
-    if param_indices is None:
-        param_indices = range(0, len(func_args))
+    if p_args is None:
+        p_args = []
 
     if mk_subdirs is None:
         mk_subdirs = False
@@ -106,10 +71,22 @@ def parametric_run(
         delay_jobs = False
 
     # Pick up the parametric variables from the list of arguments
-    param_args = [func_args[x] for x in param_indices]
+    if func_args:
+        param_args = [func_args[x] for x in p_args]
+    else:
+        param_args = []
+
+    if func_kargs:
+        param_kargs = [func_kargs[x] for x in p_kargs]
+    else:
+        param_kargs = []
+
+    print("The parametric argument values are: \n", param_args)
+    print("The parametric keyword argument values are: \n", param_kargs)
 
     # Cartesian product of parameters
-    combinations = list(product(*param_args))
+    all_params = param_args + param_kargs
+    combinations = list(product(*all_params))
 
     # Open a file to collect the results
     out_file = open('./' + prj_name + '_info.dat', 'a')
@@ -118,9 +95,12 @@ def parametric_run(
     prj_results = []
 
     # Loop through the combinations of the given input values
-    for parameters in combinations:
-        job_id = (''.join("%03d-" % e for e in parameters) + prj_name)
-        job_id = job_id.translate(None, '.')
+    for comb_case in combinations:
+        # Construct an id string for the current job based on the combination. The string is formatted so that it does
+        # contain any illegal characters for filename and abaqus job name usage.
+        job_id = str(comb_case).translate(None, ",.&*~!()[]{}|;:\'\"`<>?/\\")
+        job_id = job_id.replace(" ", "-")
+        job_id = job_id + "-" + prj_name
 
         # Wait some seconds to avoid multiple initiation of jobs
         if delay_jobs is True:
@@ -139,16 +119,28 @@ def parametric_run(
             os.chdir('./' + job_id)
 
         # Assemble current job's input arguments
-        current_func_args = func_args
-        for (index, new_parameter) in zip(param_indices, parameters):
-            current_func_args[index] = new_parameter
+        if func_args:
+            current_func_args = func_args
+            for (index, new_parameter) in zip(p_args, comb_case):
+                current_func_args[index] = new_parameter
+        else:
+            current_func_args = []
+
+        # Assemble current job's input keyword arguments
+        if func_kargs:
+            current_func_kargs = func_kargs
+            for i, x in enumerate(p_kargs):
+                current_func_kargs[x] = comb_case[len(p_args)+i]
+            current_func_kargs["IDstring"] = job_id
+        else:
+            current_func_kargs = {}
 
         # The function to be run for the full factorial parametric is called here
         print('Running job: ' + job_id)
 
         try:
             # Execute the current job
-            job_return = exec_func(*current_func_args, **kwargs)
+            job_return = exec_func(*current_func_args, **current_func_kargs)
 
             # Create an output string
             return_string = str(job_return)

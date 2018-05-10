@@ -10,6 +10,7 @@ import os
 import odbAccess
 from abaqusConstants import *
 import string
+import pickle
 
 
 # definition of a method to search for a keyword position
@@ -126,6 +127,34 @@ def field_max(odb, result):
     return _max
 
 
+def fetch_hist(odb, step_name, node_name, hist_out_name):
+    """
+    Return a history output from an odb
+
+    Parameters
+    ----------
+    odb :  str
+        odb filename (without the extension)
+    step_name :  str
+        Name of the step containing the history output
+    node_name : str
+        Name of the regarded node
+    hist_out_name : str
+        Name of the history output
+
+    Return
+    ------
+    tuple
+
+    """
+    my_odb = odbAccess.openOdb(path=odb + '.odb')
+    step = my_odb.steps[step_name]
+    node = step.historyRegions[node_name]
+    hist_out = node.historyOutputs[hist_out_name]
+    data = hist_out.data
+    odbAccess.closeOdb(my_odb)
+    return data
+
 # Look for the max value in a history output
 # TO BE FIXED. THE REFERENCE POINTS (rp1key, ho1key etc.) ARE NOT GENERIC.
 # Fetch maximum load, displacement and LPF for a riks analysis.
@@ -216,3 +245,30 @@ def fetch_eigenv(odb_name, step_name, n_eigen):
 
     # Return variables
     return eigenvalues, eigen_string
+
+
+def exporter(data, filename):
+    """
+    Eaport data to pickle
+
+    Parameters
+    ----------
+    data
+        Variable containing the data to be exported
+    filename : str
+        Filename of the export file
+    """
+    with open(filename, "wb") as fh:
+        pickle.dump(data, fh)
+
+
+# def main():
+#     """
+#     Load FEM data for the 9 tested specimens.
+#     """
+#     odb = "./016-030-specimens/RIKS-016-030-specimens"
+#     step_name = "RIKS"
+#     node_name = "Node ASSEMBLY.1"
+#     hist_out_name = "RF3"
+#
+#     sp1 = fetch_hist(odb, step_name, node_name, hist_out_name)

@@ -10,6 +10,7 @@ import PySS.steel_design as sd
 import PySS.lab_tests as lt
 import PySS.analytic_geometry as ag
 import PySS.scan_3D as s3d
+import PySS.fem as fem
 import pickle
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -21,11 +22,17 @@ class PolygonalColumn:
 
     """
 
-    def __init__(self, name=None, theoretical_specimen=None, real_specimen=None, experiment_data=None):
+    def __init__(self,
+                 name=None,
+                 theoretical_specimen=None,
+                 real_specimen=None,
+                 experiment_data=None,
+                 numerical_data=None):
         self.name = name
         self.theoretical_specimen = theoretical_specimen
         self.real_specimen = real_specimen
         self.experiment_data = experiment_data
+        self.numerical_data = numerical_data
 
     def set_theoretical_specimen(self,
                                  n_sides,
@@ -155,7 +162,7 @@ class PolygonalColumn:
 
         # Add all sides and edges.
         # they consist of FlatFace and RoundedEdge instances.
-        specimen.add_all_sides(n_sides, path + 'side_', fit_planes=True, offset_to_midline=True)
+        specimen.add_all_facets(n_sides, path + 'side_', fit_planes=True, offset_to_midline=True, calc_lcsys=True)
         # Check if the existing edges found in the directory correspond one by one to the sides. If so, then the
         # intersection lines of adjacent sides are calculated and added to the edges as reference lines. Otherwise, the
         # edges are imported from whatever files are found and no reference lines are calculated.
@@ -195,6 +202,10 @@ class PolygonalColumn:
         self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
         self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
         self.experiment_data.process_data()
+
+    def add_numerical(self, filename):
+        """Add data from FEM"""
+        self.numerical_data = fem.FEModel.from_hist_pkl(filename)
 
     def report_real_specimen(self):
         """Print a report for the processed scanned data of the real specimen."""
@@ -485,7 +496,7 @@ class RealSpecimen:
         """
         self.centre_line = ag.Line3D.from_pickle(fh)
 
-    def add_single_side_from_pickle(self, filename):
+    def add_single_facet_from_pickle(self, filename):
         """
         Create a FlatFace instance as one side af the polygon column.
 
@@ -499,7 +510,7 @@ class RealSpecimen:
         """
         self.sides.append(s3d.FlatFace.from_pickle(filename))
 
-    def add_all_sides(self, n_sides, prefix, fit_planes=False, offset_to_midline=False):
+    def add_all_facets(self, n_sides, prefix, fit_planes=False, offset_to_midline=False, calc_lcsys=False):
         """
         Add multiple sides.
 
@@ -516,8 +527,10 @@ class RealSpecimen:
             Path and file name prefix for the pickle files containing the scanned data points.
         fit_planes :
             Perform least square fitting on the imported data to calculate the reference planes.
-        offset_to_midline :
+        offset_to_midline : bool
             Offset the data points and the fitted plane by half the thickness to be on the midline of the cross-section.
+        calc_lcsys : bool
+            Translate points to the local csys. They are stored separetely in "points_lcsys"
 
         """
 
@@ -536,6 +549,11 @@ class RealSpecimen:
             for i, x in enumerate(self.sides):
                 print('Offsetting plane and points, facet:    {}'.format(i + 1))
                 x.offset_face(offset, offset_points=True)
+
+        if calc_lcsys:
+            for i, x in enumerate(self.sides):
+                print('Transform points to local csys, facet:    {}'.format(i + 1))
+                x.local_from_world()
 
     def add_single_edge_from_pickle(self, filename):
         """
@@ -686,8 +704,8 @@ class RealSpecimen:
         for i in range(-len(self.sides), 0):
             self.sides[i].plot_face(reduced=0.01, fig=fig1)
         for i in self.edges:
-            max_z = max([i.coords[2] for i in i.swarm])
-            min_z = min([i.coords[2] for i in i.swarm])
+            max_z = max([i.coords[2] for i in i.points_wcsys.swarm])
+            min_z = min([i.coords[2] for i in i.points_wcsys.swarm])
 
             i.theoretical_edge.plot_line(fig=fig1, ends=[min_z, max_z])
 
@@ -741,6 +759,20 @@ class RealSpecimen:
         #         self.edges[i].facet_intrsct_line.xy_for_z(max_z))
         #     )
         #     print('')
+
+    def plot_facets(self):
+        """
+        Plot all the facets together
+        """
+        for i in self.sides:
+            i.regulate_imperf()
+
+        fig = plt.figure()
+        for i, facet in enumerate(self.sides):
+            print(i)
+            fig.add_subplot(16, 1, i + 1)
+            plt.imshow(facet.regular_grid[2], cmap='gray')
+            plt.title(str(i)), plt.xticks([]), plt.yticks([])
 
 
 class TestData(lt.Experiment):
@@ -1109,6 +1141,7 @@ def main(
          nominal=True,
          add_real_specimens=True,
          add_experimental_data=True,
+         add_numerical_data=True,
          make_plots=True,
          export=False,
          print_reports=True
@@ -1154,7 +1187,6 @@ def main(
         print('Adding real specimens with the 3d scanned data to the polygonal columns.')
         for i in range(9):
             print('Adding real scanned shape to specimen number {}'.format(i + 1))
-            print(directory + 'sp{}/'.format(i + 1))
             cases[i].add_real_specimen(directory + 'sp{}/'.format(i + 1))
 
     if add_experimental_data:
@@ -1167,6 +1199,13 @@ def main(
         cases[1].experiment_data.offset_stroke()
         cases[3].experiment_data.offset_stroke()
         cases[4].experiment_data.offset_stroke()
+
+    if add_numerical_data:
+        print('Adding data from numerical analyses.')
+        for i in range(9):
+            print('Adding numerical data to specimen number {}'.format(i + 1))
+            print(directory + 'sp{}/'.format(i + 1))
+            cases[i].add_numerical(directory + 'fem/sp{}'.format(i + 1))
 
     if make_plots:
         print('Producing plots.')

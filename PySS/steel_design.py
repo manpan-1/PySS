@@ -275,10 +275,10 @@ class Material:
         ----------
 
         """
-        if nominal is None:
+        if nominal == None:
             nominal = 'S235'
 
-        if nominal is 'S355':
+        if nominal == 'S355':
             table = (
                 (381.1, 0.0),
                 (391.2, 0.0053),
@@ -293,13 +293,37 @@ class Material:
                 (5961, 1.)
             )
 
-        if nominal is 'S650':
+        if nominal == 'S650':
             table = (
                 (760., 0.0),
                 (770., 0.022),
                 (850., 0.075),
                 (900., 0.1),
                 (901., 1.)
+            )
+
+        if nominal == 'S700':
+            table = (
+                (300., 0.00000),
+                (400., 4.53e-5),
+                (450., 8.24e-5),
+                (500., 1.41e-4),
+                (550., 2.47e-4),
+                (600., 4.45e-4),
+                (630., 6.52e-4),
+                (660., 1.00e-3),
+                (700., 2.07e-3),
+                (720., 3.37e-3),
+                (750., 9.18e-3),
+                (770., 1.41e-2),
+                (790., 2.01e-2),
+                (800., 2.38e-2),
+                (820., 3.26e-2),
+                (840., 4.56e-2),
+                (850., 5.52e-2),
+                (860., 7.11e-2),
+                (865., 9.34e-2),
+                (870., 1.00)
             )
 
         return table
@@ -600,7 +624,6 @@ def sigma_x_rd(
         fab_quality=None,
         gamma_m1=None
 ):
-    # Docstring
     """
     Meridional design buckling stress.
 
@@ -698,7 +721,6 @@ def n_cr_shell(
         radius,
         length
 ):
-    # Docstring
     """
     Critical compressive load for cylindrical shell.
 
@@ -742,7 +764,6 @@ def sigma_x_rcr(
         radius,
         length
 ):
-    # Docstring
     """
     Critical meridional stress for cylindrical shell.
 
@@ -796,47 +817,6 @@ def sigma_x_rcr(
 
     # Return value
     return sigma_cr, length_category
-
-
-def fabclass_2_umax(fab_class=None):
-    # Docstring
-    """
-    Max dimple displacement.
-
-    Returns the maximum displacement for a dimple imperfection on a cylindrical shell. The values are taken from table
-    8.4 of EN1993-1-6[1] for a given fabrication quality class, A, B or C.
-
-    Parameters
-    ----------
-    fab_class : {'fcA', 'fcB', 'fcC'}
-        The fabrication quality class.
-
-    Returns
-    -------
-    float
-        u_max / l, where u_max is the maximum deviation and l the dimple's size (circumferencial or meridional)
-
-    References
-    ----------
-    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
-        Brussels: CEN, 2006.
-
-    """
-    # default values
-    if fab_class is None:
-        fab_class = 'fcA'
-
-    # Assign imperfection amplitude, u_max acc. to the fabrication class
-    if fab_class is 'fcA':
-        u_max = 0.006
-    elif fab_class is 'fcB':
-        u_max = 0.010
-    else:
-        u_max = 0.016
-
-    # Return values
-    return u_max
-
 
 # OVERALL BUCKLING
 def n_cr_flex(
@@ -1613,19 +1593,31 @@ def bolt2washer(m_bolt):
     m_bolt : float
         Bolt diameter
 
-    Attributes
-    ----------
-
-    Notes
-    -----
-
-    References
-    ----------
-
     """
 
     d_washer = np.ceil(1.5893 * m_bolt + 5.1071)
     return d_washer
+
+
+def fabclass_2_umax(fab_class):
+    """
+    Maximum displacement for a given fabrication class acc. to EC3-1-6.
+
+    Parameters
+    ----------
+    fab_class : {"fcA", "fcB", "fcC"}
+
+    """
+    # Assign imperfection amplitude, u_max acc. to the fabrication class
+    if fab_class is 'fcA':
+        u_max = 0.006
+    elif fab_class is 'fcB':
+        u_max = 0.010
+    else:
+        u_max = 0.016
+
+    # Return values
+    return u_max
 
 
 def mean_list(numbers):

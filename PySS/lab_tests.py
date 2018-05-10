@@ -61,7 +61,7 @@ class Experiment:
         """
         Alternative constructor.
 
-        Used to make a coupon object and load the data at once.
+        Imports data from a CATMAN output file. Uses 'ISO-8859-1' text encoding.
 
         Parameters
         ----------
@@ -95,10 +95,11 @@ class Experiment:
 
         # Build a dictionary with the data using the column header to fetch the dict keys.
         for i in range(n_chan):
-            channel = np.zeros((len(values), 1))
+            channel = np.empty(len(values))
             name = column_head[0][i].partition(' ')[0]
             for j, row in enumerate(values):
-                channel[j] = (float(row[i].replace(',', '.')))
+                channel[j] = float(row[i].replace(',', '.'))
+
             data[name] = channel
 
         return cls(name=filename, data=data)
@@ -118,6 +119,8 @@ class CouponTest(Experiment):
         self.thickness = thickness
         self.width = width
         self.l_0 = l_0
+        self.initial_stiffness = None
+        self.young = None
         # If geometric data existe, calculate the initial area.
         if (
             isinstance(thickness, float) or isinstance(thickness, int)
@@ -127,6 +130,59 @@ class CouponTest(Experiment):
             self.A_0 = thickness * width
         else:
             self.A_0 = None
+
+    def clean_initial(self):
+        """
+        Remove head and tail of the load-displacement data.
+
+        """
+
+        # Find the indices of the values larger then 1 kN, as a way of excluding head and tail recorded data.
+        valid = np.where(self.data["Load"] > 1)[0]
+
+        self.data["Load"] = self.data["Load"][valid]
+        self.data["Epsilon"] = self.data["Epsilon"][valid]
+
+    def calc_init_stiffness(self):
+        """
+        Calculate the modulus of elasticity.
+
+        The calculation is based on the range between 20% and 30% of the max load.
+
+        """
+        # Find the 20% and 30% of the max load
+        lims = np.round([np.max(self.data["Load"])*0.2, np.max(self.data["Load"])*0.3]).astype(int)
+
+        indices = [np.argmax(self.data["Load"] > lims[0]), np.argmax(self.data["Load"] > lims[1])]
+        disp_el = self.data["Epsilon"][indices[0]:indices[1]]
+        load_el =  self.data["Load"][indices[0]:indices[1]]
+
+        # fitting
+        A = np.vstack([disp_el, np.ones(len(disp_el))]).T
+        m, c = np.linalg.lstsq(A, load_el)[0]
+
+        # Save the initial stiffness in th eobject
+        self.initial_stiffness = m
+
+        # Return the tangent
+        return [m, c]
+
+    def offset_to_0(self):
+        """
+        Offset the stroke values to start from 0 based on a regression on the initial stiffness.
+        """
+
+        # Linear regression on the elastic part to get stiffness and intercept
+        m, c = self.calc_init_stiffness()
+        # calculate the stroke offset
+        offset = -c/m
+
+        # Offset original values
+        self.data["Epsilon"] = self.data["Epsilon"] - offset
+
+        # Add the initial 0 values in both stroke and load arrays
+        self.data["Epsilon"] = np.concatenate([[0], self.data["Epsilon"]])
+        self.data["Load"] = np.concatenate([[0], self.data["Load"]])
 
     def add_initial_data(self, thickness, width, l_0):
         """
@@ -164,6 +220,22 @@ class CouponTest(Experiment):
         self.data['StressEng'] = 1000 * self.data['Load'] / self.A_0
         self.data['StrainEng'] = self.data['Epsilon'] / self.l_0
 
+    def calc_young(self):
+        """Calculate the modulus of elasticity."""
+        if self.l_0 and self.A_0:
+            if not self.initial_stiffness:
+                self.calc_init_stiffness()
+
+            self.young = 1000 * self.initial_stiffness * (self.l_0 / self.A_0)
+        else:
+            print("Missing information. Check if l_0 and A_0 exist.")
+
+    def calc_plastic_strain(self):
+        """
+        Calculate the plastic strain.
+        """
+        self.data["StrainPl"] = self.data["StrainEng"] - self.data["StressEng"] / self.young
+
     def plot_stressstrain_eng(self, ax=None):
         ax = self.plot2d('StrainEng', 'StressEng', ax=ax)
         plt.xlabel('Strain, $\epsilon_{eng}$ [%]')
@@ -175,7 +247,13 @@ class CouponTest(Experiment):
 def main():
     cp = []
     for i in range(1, 7):
-        cp.append(CouponTest.from_file('./data/coupons/cp{}.asc'.format(i)))
+        coupon = CouponTest.from_file('./data/coupons/cp{}.asc'.format(i))
+        coupon.clean_initial()
+        coupon.calc_init_stiffness()
+        coupon.offset_to_0()
+
+        cp.append(coupon)
+
 
     widths = [20.408, 20.386, 20.397, 20.366, 20.35, 20.39]
     thicknesses = [1.884, 1.891, 1.9, 1.88, 1.882, 1.878]
@@ -184,7 +262,9 @@ def main():
     for i , x in enumerate(cp):
         x.add_initial_data(thicknesses[i], widths[i], l_0s[i])
         x.calc_stress_strain()
-        x.plot_stressstrain_eng()
+        x.calc_young()
+        x.calc_plastic_strain()
+        # x.plot_stressstrain_eng()
 
     return cp
 
