@@ -257,7 +257,7 @@ class Material:
         """
         Plasticity tables.
 
-        Tables with plastic stress-strain curve values for different steels
+        Returns a tuple with plastic stress-strain curve values for different steels
         given a steel name, e.g 'S355'
 
         Parameters
@@ -280,6 +280,21 @@ class Material:
 
         if nominal == 'S355':
             table = (
+                (355.0, 0.0),
+                (360.0, 0.015),
+                (390.0, 0.0228),
+                (420.0, 0.0315),
+                (440.0, 0.0393),
+                (480.0, 0.0614),
+                (520.0, 0.0926),
+                (550.0, 0.1328),
+                (570.0, 0.1746),
+                (585.0, 0.2216),
+                (586.0, 1.)
+            )
+
+        if nominal == 'S381':
+            table = (
                 (381.1, 0.0),
                 (391.2, 0.0053),
                 (404.8, 0.0197),
@@ -290,7 +305,7 @@ class Material:
                 (562.1, 0.1009),
                 (584.6, 0.1221),
                 (594.4, 0.1394),
-                (5961, 1.)
+                (596, 1.)
             )
 
         if nominal == 'S650':
@@ -429,12 +444,11 @@ class Part:
 
 #TODO: Implement EN50341. Currently the resistance is calculated only for pure compression elements. Add interaction.
 
-def n_pl_rd(
+def a_eff(
         thickness,
         width,
         f_yield,
-        psi=None
-):
+        psi=None):
     # Docstring
     """
     Plastic design resistance of a plate.
@@ -496,8 +510,63 @@ def n_pl_rd(
     # Effective area
     a_eff = rho * thickness * width
 
+    return(a_eff)
+
+
+def n_pl_rd(
+        thickness,
+        width,
+        f_yield,
+        psi=None
+):
+    # Docstring
+    """
+    Plastic design resistance of a plate.
+
+    Calculates the resistance of a plate according to EN1993-1-1 and
+    EN1993-1-5. The plate is assumed simply supported.
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Plate thickness
+    width : float
+        [mm] Plate width
+    f_yield : float
+        [MPa] Yield stress
+    psi : float, optional
+        [_] Ratio of the min over max stress for a linear distribution,
+        (sigma_min / sigma_max)
+        Default = 1, which implies a uniform distribution
+
+    Returns
+    -------
+    float
+        [N] Plastic design resistance
+
+    Notes
+    -----
+    To be extended to include cantilever plate (outstand members)
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
+        Brussels: CEN, 2005.
+    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
+
+    """
+
+    # Convert inputs to floats
+    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
+
+    # Default value for psi
+    if psi is None:
+        psi = 1.
+    else:
+        psi = float(psi)
+
     # Axial compression resistance , Npl
-    nn_pl_rd = a_eff * f_yield
+    nn_pl_rd = a_eff(thickness, width, f_yield, psi=None) * f_yield
 
     # Return value
     return nn_pl_rd
@@ -1180,9 +1249,9 @@ def lmbda_flex(
         length,
         area,
         moi_y,
+        f_yield,
         kapa_bc=None,
         e_modulus=None,
-        f_yield=None
 ):
     # Docstring
     """
@@ -1228,7 +1297,7 @@ def lmbda_flex(
         e_modulus = float(e_modulus)
 
     if f_yield is None:
-        f_yield = 380.
+        f_yield = 235.
     else:
         f_yield = float(f_yield)
 
@@ -1327,22 +1396,24 @@ def chi_flex(
         kapa_bc = 1.
 
     lmda = lmbda_flex(
-        length=length,
-        area=area,
-        moi_y=moi_y,
+        length,
+        area,
+        moi_y,
+        f_yield,
         kapa_bc=kapa_bc,
         e_modulus=None,
-        f_yield=f_yield
     )
-
-    alpha = imp_factor(b_curve)
-
-    phi = (1 + alpha * (lmda - 0.2) + lmda ** 2) / 2.
-
-    chi = 1 / (phi + np.sqrt(phi ** 2 - lmda ** 2))
-
-    if chi > 1.:
+    if lmda < 0.2:
         chi = 1.
+    else:
+        alpha = imp_factor(b_curve)
+
+        phi = (1 + alpha * (lmda - 0.2) + lmda ** 2) / 2.
+
+        chi = 1 / (phi + np.sqrt(phi ** 2 - lmda ** 2))
+
+        if chi > 1.:
+            chi = 1.
 
     return chi
 

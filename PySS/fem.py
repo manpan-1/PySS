@@ -111,7 +111,6 @@ class ParametricDB:
         responce : str
             The name of the requested response to be sliced.
 
-
         """
 
         idx_arr = [0]*len(self.addressbook)

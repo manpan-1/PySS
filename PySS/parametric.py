@@ -3,7 +3,7 @@ from shutil import rmtree
 from time import sleep
 from random import random
 import os
-import filelock_git.filelock as flck
+import FileLock as flck
 
 
 def testfunc(*args, **kargs):
@@ -95,7 +95,7 @@ def parametric_run(
     combinations = list(product(*all_params))
 
     # Check for existing "last_job.log" and if not, initialise a new one
-    queue = "closed_polygon/last_job.log"
+    queue = "last_job.log"
     if not os.path.isfile(queue):
         with open(queue, "w+") as f:
             curr_job_nr = -1
@@ -162,34 +162,23 @@ def parametric_run(
         # The function to be run for the full factorial parametric is called here
         print("Running job nr: " + str(curr_job_nr) + " with name: " + job_id)
 
-        try:
-            # Execute the current job
-            job_return = exec_func(*current_func_args, **current_func_kargs)
+        # Execute the current job
+        job_return = exec_func(*current_func_args, **current_func_kargs)
 
-            # Create an output string
-            return_string = str(job_return)
+        # Create an output string
+        return_string = str(job_return)
 
-            # Return to parent directory
-            if mk_subdirs is True:
-                os.chdir('../')
+        # Return to parent directory
+        if mk_subdirs is True:
+            os.chdir('../')
 
-            # Write each returned string to the file separated by newlines
-            # job_return = str(job_return)
-            # TODO: create a standardised output that can be imported by the FEM results class in steel_tools.Column titles, input and output.
+        # Open a file to collect the results
+        with flck.FileLock('./' + prj_name + '_info.dat'):
+            with open('./' + prj_name + '_info.dat', 'a') as out_file:
+                out_file.write(job_id + ", " + return_string + "\n")
 
-            # Open a file to collect the results
-            with flck.FileLock('./' + prj_name + '_info.dat'):
-                with open('./' + prj_name + '_info.dat', 'a') as out_file:
-                    out_file.write(job_id + ", " + return_string + "\n")
-
-            # Add the result of the current job to the return list
-            prj_results = prj_results + [job_return]
-        #TODO: Write log file
-        except:
-            print('Problem while executing job: ' + job_id)
-            print('Job is canceled. See log file (no log file yet)')
-            if mk_subdirs is True:
-                os.chdir('../')
+        # Add the result of the current job to the return list
+        prj_results = prj_results + [job_return]
 
         # Remove job's folder (only the output information is kept)
         if mk_subdirs and del_subdirs is True:

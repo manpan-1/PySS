@@ -241,7 +241,8 @@ class TheoreticalSpecimen(sd.Part):
             thickness,
             length,
             f_yield,
-            fab_class
+            fab_class,
+            arc_to_thickness=3.
     ):
         """
         Create theoretical polygonal column object for given geometric data.
@@ -268,20 +269,27 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         # Create material
-        material = sd.Material(210000, 0.3, f_yield)
+        material = sd.Material(210000., 0.3, f_yield)
         epsilon = np.sqrt(235. / f_yield)
 
-        # Radius of the polygon's circumscribed circle
-        r_circum = (np.pi * r_circle) / (n_sides * np.sin(np.pi / n_sides))
+        # Bending radius
+        r_bend = arc_to_thickness * thickness
 
-        # Diameter
-        diam_circum = 2 * r_circum
+        # Radius of the polygon's circumscribed circle
+        r_circum = (np.pi * r_circle + r_bend * (n_sides * np.tan(np.pi/n_sides) - np.pi)) / (n_sides * np.sin(np.pi/n_sides))
+        #r_circum = (np.pi * r_circle) / (n_sides * np.sin(np.pi / n_sides))
 
         # Central angles
         theta = 2 * np.pi / n_sides
 
         # Width of each side
-        facet_width = diam_circum * np.sin(np.pi / n_sides)
+        facet_width = 2 * r_circum * np.sin(np.pi / n_sides)
+
+        # Width of the corner bend half arc projection on the plane of the facet
+        arc_width = r_bend * np.tan(np.pi / n_sides)
+
+        # Flat width of each facet (excluding the bended arcs)
+        facet_flat_width = facet_width - 2 * arc_width
 
         # Polar coordinate of the polygon vertices on the cross-section plane
         phii = []
@@ -305,12 +313,18 @@ class TheoreticalSpecimen(sd.Part):
 
         # Additional geometric properties (exclusive to the polygonal)
         geometry.r_circle = r_circle
+        geometry.r_circumscribed = r_circum
         geometry.facet_width = facet_width
+        geometry.facet_flat_width = facet_flat_width
         geometry.n_sides = n_sides
+        geometry.r_bend = r_bend
 
         cs_props = sd.CsProps.from_cs_sketch(cs_sketch)
         cs_props.max_dist = r_circum
         cs_props.min_dist = np.sqrt(r_circum ** 2 - (facet_width / 2) ** 2)
+        corner_area = 2 * np.pi * r_bend * thickness
+        flat_area = n_sides * facet_flat_width * thickness
+        cs_props.area = corner_area + flat_area
 
         lmbda_y = sd.lmbda_flex(
             length,
@@ -330,10 +344,10 @@ class TheoreticalSpecimen(sd.Part):
             f_yield=material.f_yield
         )
 
-        # Axial compression resistance , Npl
-        n_pl_rd = n_sides * sd.n_pl_rd(thickness, facet_width, f_yield)
+        # Axial compression resistance , Npl (acc. to EC3-1-5)
+        n_pl_rd = n_sides * sd.n_pl_rd(thickness, facet_flat_width, f_yield) + corner_area * f_yield
 
-        # Compression resistance of equivalent cylindrical shell
+        # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
         n_b_rd_shell = 2 * np.pi * r_circle * thickness * sd.sigma_x_rd(
             thickness,
             r_circle,
@@ -343,8 +357,8 @@ class TheoreticalSpecimen(sd.Part):
             gamma_m1=1.
         )
 
-        # Plate classification acc. to EC3-1-1
-        p_classification = facet_width / (epsilon * thickness)
+        # Plate classification (acc. to EC3-1-1)
+        p_classification = facet_flat_width / (epsilon * thickness)
 
         # Tube classification slenderness acc. to EC3-1-1
         t_classification = 2 * r_circle / (epsilon ** 2 * thickness)
@@ -369,7 +383,8 @@ class TheoreticalSpecimen(sd.Part):
             thickness,
             length,
             f_yield,
-            fab_class
+            fab_class,
+            arc_to_thickness=3.
     ):
         """
         Create theoretical polygonal column object for given number of sides and cross-section slenderness.
@@ -399,7 +414,8 @@ class TheoreticalSpecimen(sd.Part):
         epsilon = np.sqrt(235. / f_yield)
 
         # Radius of the equal perimeter cylinder
-        r_circle = n_sides * thickness * epsilon * p_classification / (2 * np.pi)
+        r_circle = (n_sides * thickness / np.pi) * ((p_classification * epsilon / 2) + arc_to_thickness * np.tan(np.pi / n_sides))
+        #r_circle = n_sides * thickness * epsilon * p_classification / (2 * np.pi)
 
         return cls.from_geometry(
             n_sides,
@@ -418,7 +434,8 @@ class TheoreticalSpecimen(sd.Part):
             p_classification,
             length,
             f_yield,
-            fab_class
+            fab_class,
+            arc_to_thickness=3.
     ):
         """
         Create theoretical polygonal column object for given geometric data.
@@ -447,7 +464,8 @@ class TheoreticalSpecimen(sd.Part):
         epsilon = np.sqrt(235. / f_yield)
 
         # Calculate the thickness
-        thickness = 2 * np.pi * r_circle / (n_sides * epsilon * p_classification)
+        thickness = r_circle * np.pi / (n_sides * (p_classification * epsilon / 2 + arc_to_thickness * np.tan(np.pi / n_sides)))
+        #thickness = 2 * np.pi * r_circle / (n_sides * epsilon * p_classification)
 
         return cls.from_geometry(
             n_sides,
