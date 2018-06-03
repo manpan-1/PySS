@@ -166,7 +166,10 @@ def parametric_run(
         print("Running job nr: " + str(curr_job_nr) + " with name: " + job_id)
 
         # Execute the current job
-        job_return = exec_func(*current_func_args, **current_func_kargs)
+        try:
+            job_return = exec_func(*current_func_args, **current_func_kargs)
+        except:
+            job_return = "FAILED"
 
         # Create an output string
         return_string = str(job_return)
