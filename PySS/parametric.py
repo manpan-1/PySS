@@ -112,6 +112,9 @@ def parametric_run(
         with flck.FileLock(queue):
             with open(queue, "r+") as f:
                 curr_job_nr = int(f.read()) + 1
+                #TODO: check the break condition
+                if curr_job_nr == len(combinations):
+                    break
                 f.seek(0)
                 f.truncate()
                 f.write(str(curr_job_nr))
