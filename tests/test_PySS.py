@@ -77,20 +77,20 @@ class TestPySS(unittest.TestCase):
                   -51.144785309768572)]
 
         self.assertEqual(case.theoretical_specimen.geometry.length, 700.)
-        self.assertAlmostEqual(case.theoretical_specimen.geometry.r_circle, 132.79066165555551)
+        self.assertAlmostEqual(case.theoretical_specimen.geometry.r_circle, 141.90813297060362)
         self.assertEqual(case.theoretical_specimen.geometry.thickness, 3.)
         for i, j in zip(case.theoretical_specimen.geometry.cs_sketch.elem, elem):
             self.assertAlmostEqual(i, j)
             self.assertAlmostEqual(i, j)
 
         # Check calculations of cross sectional properties.
-        self.assertEqual(case.theoretical_specimen.cs_props.area, 2503.0450027345264)
+        self.assertEqual(case.theoretical_specimen.cs_props.area, 2674.905288150551)
         self.assertEqual(case.theoretical_specimen.cs_props.xc, 0)
         self.assertEqual(case.theoretical_specimen.cs_props.yc, 0)
-        self.assertEqual(case.theoretical_specimen.cs_props.min_dist, 131.07976034182852)
-        self.assertEqual(case.theoretical_specimen.cs_props.max_dist, 133.64776466459372)
-        self.assertEqual(case.theoretical_specimen.cs_props.moi_xx, 21787142.874024708)
-        self.assertEqual(case.theoretical_specimen.cs_props.moi_yy, 21787142.874024704)
+        self.assertEqual(case.theoretical_specimen.cs_props.min_dist, 140.1957181330735)
+        self.assertEqual(case.theoretical_specimen.cs_props.max_dist, 142.94231462714737)
+        self.assertEqual(case.theoretical_specimen.cs_props.moi_xx, 26656161.69374494)
+        self.assertEqual(case.theoretical_specimen.cs_props.moi_yy, 26656161.69374494)
 
         # Check calculations of structural properties.
         self.assertEqual(case.theoretical_specimen.struct_props.p_classification, 30.)

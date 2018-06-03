@@ -3,7 +3,7 @@ from shutil import rmtree
 from time import sleep
 from random import random
 import os
-import FileLock as flck
+import PySS.FileLock as flck
 
 
 def testfunc(*args, **kargs):
