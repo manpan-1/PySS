@@ -218,6 +218,7 @@ def subdir_crawler(
 
     #TODO: list the directories with an if condition, enter them and executue the function
     all_dirs = [i for i in os.listdir('.') if os.path.isdir(i)]
+    all_dirs.sort()
 
     for directory in all_dirs:
         os.chdir(directory)
