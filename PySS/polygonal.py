@@ -387,7 +387,7 @@ class TheoreticalSpecimen(sd.Part):
             arc_to_thickness=3.
     ):
         """
-        Create theoretical polygonal column object for given number of sides and cross-section slenderness.
+        Create theoretical polygonal column object for given plate slenderness and thickness.
 
         The constructor calculates properties of the polygonal column object (cross-section props,
         resistance, geometric props etc) which are then used to construct an object.
@@ -438,7 +438,7 @@ class TheoreticalSpecimen(sd.Part):
             arc_to_thickness=3.
     ):
         """
-        Create theoretical polygonal column object for given geometric data.
+        Create theoretical polygonal column object for given plate slenderness and radius.
 
         The constructor calculates properties of the polygonal column object (cross-section props,
         resistance, geometric props etc). The calculated data is then used to construct an object.
@@ -487,6 +487,29 @@ class TheoreticalSpecimen(sd.Part):
             fab_class,
             arc_to_thickness=3.
     ):
+        """
+        Create theoretical polygonal column object for given plate slenderness, radius and flexural slenderness.
+
+        The constructor calculates properties of the polygonal column object (cross-section props,
+        resistance, geometric props etc). The calculated data is then used to construct an object.
+
+        Parameters
+        ----------
+        n_sides : int
+            Number of sides of the polygon cross-section.
+        r_circle : float
+            Radius of the circle circumscribed to the polygon.
+        p_classification : float
+            Facet slenderness, c/(ε*t).
+        length : float
+            Length of the column.
+        f_yield : float
+            Yield stress of the material.
+        fab_class : {'fcA', 'fcB', 'fcC'}
+            Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
+            the cylinder of equal thickness-perimeter.
+
+        """
         # Epsilon for the material
         epsilon = np.sqrt(235. / f_yield)
 
