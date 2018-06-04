@@ -476,6 +476,80 @@ class TheoreticalSpecimen(sd.Part):
             fab_class
         )
 
+    @classmethod
+    def from_lambda_slenderness_radius(
+            cls,
+            n_sides,
+            r_circle,
+            p_classification,
+            lambda_flex,
+            f_yield,
+            fab_class,
+            arc_to_thickness=3.
+    ):
+        # Epsilon for the material
+        epsilon = np.sqrt(235. / f_yield)
+
+        # Calculate the thickness
+        thickness = r_circle * np.pi / (n_sides * (p_classification * epsilon / 2 + arc_to_thickness * np.tan(np.pi / n_sides)))
+
+        # Bending radius
+        r_bend = arc_to_thickness * thickness
+
+        # Radius of the polygon's circumscribed circle.
+        r_circum = (np.pi * r_circle + r_bend * (n_sides * np.tan(np.pi / n_sides) - np.pi)) / (n_sides * np.sin(np.pi / n_sides))
+
+        # Width of each side.
+        w_side = 2 * r_circum * np.sin(np.pi / n_sides)
+
+        # Width of the corner bend half arc projection on the plane of the facet
+        arc_width = r_bend * np.tan(np.pi / n_sides)
+
+        # Flat width of each facet (excluding the bended arcs)
+        facet_flat_width = w_side - 2 * arc_width
+
+        # Total cross-sectional area of the bended corners
+        corner_area = 2 * np.pi * r_bend * thickness
+
+        # Central angles
+        theta = 2 * np.pi / n_sides
+
+        # Polar coordinate of ths polygon vertices on the cross-section plane.
+        phii = []
+        for i_index in range(n_sides):
+            phii.append(i_index * theta)
+
+        # Coordinates of the polygon vertices.
+        x_corners = r_circum * np.cos(phii)
+        y_corners = r_circum * np.sin(phii)
+
+        # Cross-sectional properties
+        nodes = [x_corners, y_corners]
+        elem = [
+            list(range(0, len(x_corners))),
+            list(range(1, len(x_corners))) + [0],
+            len(x_corners) * [thickness]
+        ]
+
+        # Cross-sectional properties
+        cs_props = sd.CsProps.from_cs_sketch(sd.CsSketch(nodes, elem))
+
+        # Effective cross section area, A_eff
+        a_eff = n_sides * sd.a_eff(thickness, facet_flat_width, f_yield) + corner_area
+
+        # Calculate column length for the given flexural slenderness.
+        length = lambda_flex * np.pi * np.sqrt(210000. * cs_props.moi_1 / (a_eff * f_yield))
+
+        #TODO: Instead of calling the "from_geometry", the object could be created directly here...
+        return cls.from_geometry(
+            n_sides,
+            r_circle,
+            thickness,
+            length,
+            f_yield,
+            fab_class
+        )
+
 
 class RealSpecimen:
     """
