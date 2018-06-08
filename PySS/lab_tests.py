@@ -52,9 +52,13 @@ class Experiment:
 
         return ax
 
-    def add_new_channel_zeros(self, name):
+    def add_new_channel_zeros(self, ch_name):
         """"Initialise a new channel entry in the dictionary with zeros."""
-        self.data[name] = np.zeros([len(self.data[next(iter(self.data))]), 1])
+        self.data[ch_name] = np.zeros([len(self.data[next(iter(self.data))]), 1])
+
+    def reverse_sign(self, ch_name):
+        """Reverse the sign on the values of a channel"""
+        self.data[ch_name] = -1*self.data[ch_name]
 
     @classmethod
     def from_file(cls, fh):

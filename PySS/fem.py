@@ -48,9 +48,9 @@ class FEModel:
 
 
 class ParametricDB:
-    def __init__(self, addressbook, db):
-        self.db = db
-        self.addressbook = addressbook
+    def __init__(self, dimensions, responses):
+        self.responses = responses
+        self.dimensions = dimensions
 
     @classmethod
     def from_file(cls, filename):
@@ -113,15 +113,15 @@ class ParametricDB:
 
         """
 
-        idx_arr = [0]*len(self.addressbook)
+        idx_arr = [0]*len(self.dimensions)
 
-        for key in self.addressbook._fields:
+        for key in self.dimensions._fields:
             if key not in slice_at.keys():
                 idx_arr[self.get_idx(key)] = slice(None, None)
         for name, value in zip(slice_at.keys(), slice_at.values()):
             idx_arr[self.get_idx(name)] = value
 
-        return self.db[response][idx_arr]
+        return self.responses[response][idx_arr]
 
     def get_idx(self, attrname):
         """
@@ -132,7 +132,7 @@ class ParametricDB:
         attrname : str
 
         """
-        return(self.addressbook.index(self.addressbook.__getattribute__(attrname)))
+        return(self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
     def contour_2d(self, slice_at, response, transpose=False, fig=None):
         """
@@ -145,18 +145,18 @@ class ParametricDB:
         else:
             ax  = fig.gca()
 
-        axes = [key for key in self.addressbook._fields if key not in slice_at.keys()]
+        axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
         if transpose:
-            X, Y = np.meshgrid(self.addressbook[self.get_idx(axes[1])], self.addressbook[self.get_idx(axes[0])])
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[1])], self.dimensions[self.get_idx(axes[0])])
             Z = self.get_slice(slice_at, response).T
             x_label, y_label = axes[1], axes[0]
         else:
-            X, Y = np.meshgrid(self.addressbook[self.get_idx(axes[0])], self.addressbook[self.get_idx(axes[1])])
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[0])], self.dimensions[self.get_idx(axes[1])])
             Z = self.get_slice(slice_at, response)
             x_label, y_label = axes[0], axes[1]
 
-        ttl_values = [self.addressbook[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
+        ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
 
         sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T)
         plt.clabel(sbplt, inline=1, fontsize=10)
@@ -183,7 +183,7 @@ class ParametricDB:
         by Iury Sousa
 
         """
-        axes = [key for key in self.addressbook._fields if key not in slice_at.keys()]
+        axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
         if time is None:
             time = axes[-1]

@@ -1,3 +1,4 @@
+import sys
 from itertools import product
 from shutil import rmtree
 from time import sleep
@@ -122,7 +123,11 @@ def parametric_run(
         comb_case = combinations[curr_job_nr]
         # Construct an id string for the current job based on the combination. The string is formatted so that it does
         # contain any illegal characters for filename and abaqus job name usage.
-        job_id = str(comb_case).translate(None, ",.&*~!()[]{}|;:\'\"`<>?/\\")
+        # Python version checking is needed because the "translate" method has changed.
+        if sys.version[0] == "2":
+            job_id = str(comb_case).translate(None, ",.&*~!()[]{}|;:\'\"`<>?/\\")
+        else:
+            job_id = str(comb_case).translate(str.maketrans("", "", ",.&*~!()[]{}|;:\'\"`<>?/\\"))
         job_id = job_id.replace(" ", "-")
         job_id = job_id + "-" + prj_name
 
