@@ -21,8 +21,14 @@ class Experiment:
     the object to be constructed.
 
     """
-    def __init__(self, name=None, data=None):
-        self.data = data
+    def __init__(self, name=None, channels=None):
+        if channels is None:
+            self.channels = {}
+        elif not isinstance(channels, dict):
+            print("Channels must be a dictionary.")
+            return NotImplemented
+        else:
+            self.channels = channels
         self.name = name
 
     def plot2d(self, x_data, y_data, ax=None):
@@ -48,17 +54,31 @@ class Experiment:
             print('Unexpected input type. Input argument `ax` must be of type `matplotlib.pyplot.axes()`')
             return NotImplemented
 
-        ax.plot(self.data[x_data], self.data[y_data], label=self.name)
+        ax.plot(self.channels[x_data]["data"], self.channels[y_data]["data"], label=self.name)
+
+        plt.xlabel(x_data + ", [" + self.channels[x_data]["units"] + "]")
+        plt.ylabel(y_data + ", [" + self.channels[y_data]["units"] + "]")
+        plt.title(self.name)
 
         return ax
 
-    def add_new_channel_zeros(self, ch_name):
-        """"Initialise a new channel entry in the dictionary with zeros."""
-        self.data[ch_name] = np.zeros([len(self.data[next(iter(self.data))]), 1])
+    def add_new_channel_zeros(self, ch_name, units):
+        """"
+        Initialise a new channel entry in the dictionary with zeros.
 
-    def reverse_sign(self, ch_name):
-        """Reverse the sign on the values of a channel"""
-        self.data[ch_name] = -1*self.data[ch_name]
+        Parameters
+        ----------
+        ch_name : str
+        units : str
+
+        """
+        self.channels[ch_name] = {}
+        self.channels[ch_name]["data"] = np.zeros([len(self.channels[next(iter(self.channels))]["data"]), 1])
+        self.channels[ch_name]["units"] = units
+
+    def invert_sign(self, ch_name):
+        """Invert the sign on the values of a channel"""
+        self.channels[ch_name]["data"] = -1 * self.channels[ch_name]["data"]
 
     @classmethod
     def from_file(cls, fh):
@@ -95,18 +115,21 @@ class Experiment:
         n_chan = len(values[0])
 
         # Create a dictionary.
-        data = {}
+        channels = {}
 
         # Build a dictionary with the data using the column header to fetch the dict keys.
         for i in range(n_chan):
-            channel = np.empty(len(values))
+            data = np.empty(len(values))
             name = column_head[0][i].partition(' ')[0]
+            channels[name] = {}
+            units = column_head[1][i]
+            channels[name]["units"] = units
             for j, row in enumerate(values):
-                channel[j] = float(row[i].replace(',', '.'))
+                data[j] = float(row[i].replace(',', '.'))
 
-            data[name] = channel
+            channels[name]["data"] = data
 
-        return cls(name=filename, data=data)
+        return cls(name=filename, channels=channels)
 
 
 class CouponTest(Experiment):
@@ -118,14 +141,14 @@ class CouponTest(Experiment):
 
     """
 
-    def __init__(self, name=None, data=None, thickness=None, width=None, l_0=None):
-        super().__init__(name=name, data=data)
+    def __init__(self, name=None, channels=None, thickness=None, width=None, l_0=None):
+        super().__init__(name=name, channels=channels)
         self.thickness = thickness
         self.width = width
         self.l_0 = l_0
         self.initial_stiffness = None
         self.young = None
-        # If geometric data existe, calculate the initial area.
+        # If geometric data exist, calculate the initial area.
         if (
             isinstance(thickness, float) or isinstance(thickness, int)
         ) and (
@@ -142,10 +165,10 @@ class CouponTest(Experiment):
         """
 
         # Find the indices of the values larger then 1 kN, as a way of excluding head and tail recorded data.
-        valid = np.where(self.data["Load"] > 1)[0]
+        valid = np.where(self.channels["Load"]["data"] > 1)[0]
 
-        self.data["Load"] = self.data["Load"][valid]
-        self.data["Epsilon"] = self.data["Epsilon"][valid]
+        self.channels["Load"]["data"] = self.channels["Load"]["data"][valid]
+        self.channels["Epsilon"]["data"] = self.channels["Epsilon"]["data"][valid]
 
     def calc_init_stiffness(self):
         """
@@ -155,11 +178,11 @@ class CouponTest(Experiment):
 
         """
         # Find the 20% and 30% of the max load
-        lims = np.round([np.max(self.data["Load"])*0.2, np.max(self.data["Load"])*0.3]).astype(int)
+        lims = np.round([np.max(self.channels["Load"]["data"]) * 0.2, np.max(self.channels["Load"]["data"]) * 0.3]).astype(int)
 
-        indices = [np.argmax(self.data["Load"] > lims[0]), np.argmax(self.data["Load"] > lims[1])]
-        disp_el = self.data["Epsilon"][indices[0]:indices[1]]
-        load_el =  self.data["Load"][indices[0]:indices[1]]
+        indices = [np.argmax(self.channels["Load"]["data"] > lims[0]), np.argmax(self.channels["Load"]["data"] > lims[1])]
+        disp_el = self.channels["Epsilon"]["data"][indices[0]:indices[1]]
+        load_el = self.channels["Load"]["data"][indices[0]:indices[1]]
 
         # fitting
         A = np.vstack([disp_el, np.ones(len(disp_el))]).T
@@ -182,11 +205,11 @@ class CouponTest(Experiment):
         offset = -c/m
 
         # Offset original values
-        self.data["Epsilon"] = self.data["Epsilon"] - offset
+        self.channels["Epsilon"]["data"] = self.channels["Epsilon"]["data"] - offset
 
         # Add the initial 0 values in both stroke and load arrays
-        self.data["Epsilon"] = np.concatenate([[0], self.data["Epsilon"]])
-        self.data["Load"] = np.concatenate([[0], self.data["Load"]])
+        self.channels["Epsilon"]["data"] = np.concatenate([[0], self.channels["Epsilon"]["data"]])
+        self.channels["Load"]["data"] = np.concatenate([[0], self.channels["Load"]["data"]])
 
     def add_initial_data(self, thickness, width, l_0):
         """
@@ -221,8 +244,10 @@ class CouponTest(Experiment):
 
         """
 
-        self.data['StressEng'] = 1000 * self.data['Load'] / self.A_0
-        self.data['StrainEng'] = self.data['Epsilon'] / self.l_0
+        self.channels['StressEng'] = {"data": 1000 * self.channels['Load']["data"] / self.A_0,
+                                      "units": "MPa"}
+        self.channels['StrainEng'] = {"data": self.channels['Epsilon']["data"] / self.l_0,
+                                      "units": "mm/mm"}
 
     def calc_young(self):
         """Calculate the modulus of elasticity."""
@@ -238,7 +263,8 @@ class CouponTest(Experiment):
         """
         Calculate the plastic strain.
         """
-        self.data["StrainPl"] = self.data["StrainEng"] - self.data["StressEng"] / self.young
+        self.channels["StrainPl"] = {"data": self.channels["StrainEng"]["data"] - self.channels["StressEng"]["data"] / self.young,
+                                     "units": "mm/mm"}
 
     def plot_stressstrain_eng(self, ax=None):
         ax = self.plot2d('StrainEng', 'StressEng', ax=ax)

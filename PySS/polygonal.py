@@ -895,17 +895,17 @@ class TestData(lt.Experiment):
     Laboratory test of polygonal specimen.
 
     """
-    def __init__(self, name=None, data=None, specimen_length=None, cs_area=None):
+    def __init__(self, name=None, channels=None, specimen_length=None, cs_area=None):
         self.specimen_length = specimen_length
         self.cs_area = cs_area
 
-        super().__init__(name=name, data=data)
+        super().__init__(name=name, channels=channels)
 
     def process_data(self):
         """
         Process raw data.
 
-        Method simply calling all the relevant processing methods. It is the following methods in order:
+        Method simply calling all the relevant processing methods, which are:
         1. :obj:`calc_avg_strain`
         2. :obj:`calc_disp_from_strain`
         3. :obj:`calc_avg_stress`
@@ -934,9 +934,13 @@ class TestData(lt.Experiment):
 
         """
 
-        self.data['e_' + axis] = []
-        for load, strain1, strain2 in zip(self.data['Load'], self.data[column[0]], self.data[column[1]]):
-            self.data['e_' + axis].append(self.eccentricity_from_strain(
+        self.channels['e_' + axis] = {}
+        self.channels['e_' + axis]["data"] = []
+        self.channels['e_' + axis]["units"] = "mm"
+        for load, strain1, strain2 in zip(self.channels['Load']["data"],
+                                          self.channels[column[0]]["data"],
+                                          self.channels[column[1]]["data"]):
+            self.channels['e_' + axis]["data"].append(self.eccentricity_from_strain(
                 load * 1000,
                 [strain1 * 1e-6, strain2 * 1e-6],
                 moi,
@@ -959,34 +963,37 @@ class TestData(lt.Experiment):
 
         """
         if offset is None:
-            offset = self.data['Stroke'][0]
+            offset = self.channels['Stroke']["data"][0]
 
-        self.data['Stroke'] = self.data['Stroke'] - offset
+        self.channels['Stroke']["data"] = self.channels['Stroke']["data"] - offset
 
     def calc_disp_from_strain(self):
         """Calculate the specimen clear axial deformation based on measured strains"""
-        self.add_new_channel_zeros('disp_clear')
-        self.data['disp_clear'] = self.data['avg_strain'] * self.specimen_length
+        self.add_new_channel_zeros('disp_clear', "mm")
+        self.channels['disp_clear']["data"] = self.channels['avg_strain']["data"] * self.specimen_length
 
     def calc_avg_strain(self):
         """Calculate the average strain from all strain gauges."""
         # Create new data channel.
-        self.add_new_channel_zeros('avg_strain')
+        self.add_new_channel_zeros('avg_strain', "mm/mm")
         i = 0
         # Collect all strain gauge records.
-        for key in self.data.keys():
+        for key in self.channels.keys():
             if len(key) > 2:
                 if key[:2].isdigit() and (key[2] is 'F') or (key[2] is 'C'):
-                    self.data['avg_strain'] = self.data['avg_strain'] + self.data[key]
+                    print(key)
+                    print(type(self.channels['avg_strain']["data"]))
+                    print(type(self.channels[key]["data"]))
+                    self.channels['avg_strain']["data"] = self.channels['avg_strain']["data"] + self.channels[key]["data"]
                     i += 1
 
-        self.data['avg_strain'] = self.data['avg_strain'] / (i * 1e6)
+        self.channels['avg_strain']["data"] = self.channels['avg_strain']["data"] / (i * 1e6)
 
     def calc_avg_stress(self):
         """Calculate the average stress from the measured reaction force and the cross-section area."""
         # Create new data channel.
-        self.add_new_channel_zeros('avg_stress')
-        self.data['avg_stress'] = self.data['Load'] * 1e3 / self.cs_area
+        self.add_new_channel_zeros('avg_stress', "Mpa")
+        self.channels['avg_stress']["data"] = self.channels['Load']["data"] * 1e3 / self.cs_area
 
     def plot_stroke_load(self, ax=None):
         """
