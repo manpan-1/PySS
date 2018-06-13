@@ -235,4 +235,4 @@ def subdir_crawler(
 
         os.chdir("..")
         with open('./' + prj_name + '_info.dat', 'a') as out_file:
-            out_file.write(directory + ", " + str(func_return) + "\n")
+            out_file.write(directory + "," + str(func_return) + "\n")
