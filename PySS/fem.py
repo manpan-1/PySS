@@ -191,7 +191,7 @@ class ParametricDB:
         data = self.get_slice(slice_at, response)
         length = data.shape[2]
 
-        ax = self.contour_2d({**slice_at,**{time: 0}}, response)
+        ax = self.contour_2d({**slice_at, **{time: 0}}, response)
         fig = plt.gcf()
 
         # X, Y = np.meshgrid(self.addressbook[self.get_idx(axes[0])], self.addressbook[self.get_idx(axes[1])])

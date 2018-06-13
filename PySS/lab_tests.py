@@ -296,5 +296,10 @@ def main():
         x.calc_plastic_strain()
         # x.plot_stressstrain_eng()
 
+        ax = plt.axes()
+        x.plot_stressstrain_eng(ax=ax)
+
+    ax.plot([0.002, 0.002 + 900 / 210000], [0, 900])
+
     return cp
 

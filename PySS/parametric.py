@@ -227,7 +227,12 @@ def subdir_crawler(
 
     for directory in all_dirs:
         os.chdir(directory)
-        func_return = exec_func(*func_args, **func_kargs)
+        # Execute the current job
+        try:
+            func_return = exec_func(*func_args, **func_kargs)
+        except:
+            func_return = "FAILED"
+
         os.chdir("..")
         with open('./' + prj_name + '_info.dat', 'a') as out_file:
             out_file.write(directory + ", " + str(func_return) + "\n")
