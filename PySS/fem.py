@@ -4,6 +4,8 @@ import pickle
 import csv
 from collections import namedtuple
 import matplotlib.animation as animation
+import matplotlib.colors as mc
+
 
 class FEModel:
     def __init__(self, name=None, hist_data=None):
@@ -134,16 +136,16 @@ class ParametricDB:
         """
         return(self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
-    def contour_2d(self, slice_at, response, transpose=False, fig=None):
+    def contour_2d(self, slice_at, response, transpose=False, ax=None):
         """
         Contour plot.
         :param slice_at:
         :return:
         """
-        if fig is None:
-            fig, ax = plt.subplots()
+        if ax is None:
+            ax = plt.axes()
         else:
-            ax  = fig.gca()
+            ax = ax
 
         axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
@@ -157,8 +159,10 @@ class ParametricDB:
             x_label, y_label = axes[0], axes[1]
 
         ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
-
-        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T)
+        
+        # norm = mc.Normalize(vmin=0.4, vmax=1., clip=True)
+        levels = np.arange(0, 2., 0.025)
+        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
         plt.clabel(sbplt, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
@@ -210,3 +214,112 @@ class ParametricDB:
         plt.show()
 
         return ani
+
+
+def main():
+    lambda01 = ParametricDB.from_file("data/fem/fem-results_lambda01.dat")
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcA, f_yield: 355 MPa, lambda_flex: 0.1")
+    lambda01.contour_2d({"plate_imp": 0, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[0, 0])
+    lambda01.contour_2d({"plate_imp": 1, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[0, 1])
+    lambda01.contour_2d({"plate_imp": 2, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[0, 2])
+    lambda01.contour_2d({"plate_imp": 3, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[1, 0])
+    lambda01.contour_2d({"plate_imp": 4, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[1, 1])
+    lambda01.contour_2d({"plate_imp": 5, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcB, f_yield: 355 MPa, lambda_flex: 0.1")
+    lambda01.contour_2d({"plate_imp": 0, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[0, 0])
+    lambda01.contour_2d({"plate_imp": 1, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[0, 1])
+    lambda01.contour_2d({"plate_imp": 2, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[0, 2])
+    lambda01.contour_2d({"plate_imp": 3, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[1, 0])
+    lambda01.contour_2d({"plate_imp": 4, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[1, 1])
+    lambda01.contour_2d({"plate_imp": 5, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcC, f_yield: 355 MPa, lambda_flex: 0.1")
+    lambda01.contour_2d({"plate_imp": 0, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[0, 0])
+    lambda01.contour_2d({"plate_imp": 1, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[0, 1])
+    lambda01.contour_2d({"plate_imp": 2, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[0, 2])
+    lambda01.contour_2d({"plate_imp": 3, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[1, 0])
+    lambda01.contour_2d({"plate_imp": 4, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[1, 1])
+    lambda01.contour_2d({"plate_imp": 5, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[1, 2])
+
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcA, f_yield: 700 MPa, lambda_flex: 0.1")
+    lambda01.contour_2d({"plate_imp": 0, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[0, 0])
+    lambda01.contour_2d({"plate_imp": 1, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[0, 1])
+    lambda01.contour_2d({"plate_imp": 2, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[0, 2])
+    lambda01.contour_2d({"plate_imp": 3, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[1, 0])
+    lambda01.contour_2d({"plate_imp": 4, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[1, 1])
+    lambda01.contour_2d({"plate_imp": 5, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcB, f_yield: 700 MPa, lambda_flex: 0.1")
+    lambda01.contour_2d({"plate_imp": 0, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[0, 0])
+    lambda01.contour_2d({"plate_imp": 1, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[0, 1])
+    lambda01.contour_2d({"plate_imp": 2, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[0, 2])
+    lambda01.contour_2d({"plate_imp": 3, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[1, 0])
+    lambda01.contour_2d({"plate_imp": 4, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[1, 1])
+    lambda01.contour_2d({"plate_imp": 5, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcC, f_yield: 700 MPa, lambda_flex: 0.1")
+    lambda01.contour_2d({"plate_imp": 0, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[0, 0])
+    lambda01.contour_2d({"plate_imp": 1, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[0, 1])
+    lambda01.contour_2d({"plate_imp": 2, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[0, 2])
+    lambda01.contour_2d({"plate_imp": 3, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[1, 0])
+    lambda01.contour_2d({"plate_imp": 4, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[1, 1])
+    lambda01.contour_2d({"plate_imp": 5, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[1, 2])
+
+
+
+
+    lambda02 = ParametricDB.from_file("data/fem/fem-results-lambda02.dat")
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcA, f_yield: 355 MPa, lambda_flex: 0.2")
+    lambda02.contour_2d({"plate_imp": 0, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[0, 0])
+    lambda02.contour_2d({"plate_imp": 1, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[0, 1])
+    lambda02.contour_2d({"plate_imp": 2, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[0, 2])
+    lambda02.contour_2d({"plate_imp": 3, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[1, 0])
+    lambda02.contour_2d({"plate_imp": 4, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[1, 1])
+    lambda02.contour_2d({"plate_imp": 5, "fab_class": 0, "f_yield": 0}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcB, f_yield: 355 MPa, lambda_flex: 0.2")
+    lambda02.contour_2d({"plate_imp": 0, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[0, 0])
+    lambda02.contour_2d({"plate_imp": 1, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[0, 1])
+    lambda02.contour_2d({"plate_imp": 2, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[0, 2])
+    lambda02.contour_2d({"plate_imp": 3, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[1, 0])
+    lambda02.contour_2d({"plate_imp": 4, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[1, 1])
+    lambda02.contour_2d({"plate_imp": 5, "fab_class": 1, "f_yield": 0}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcC, f_yield: 355 MPa, lambda_flex: 0.2")
+    lambda02.contour_2d({"plate_imp": 0, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[0, 0])
+    lambda02.contour_2d({"plate_imp": 1, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[0, 1])
+    lambda02.contour_2d({"plate_imp": 2, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[0, 2])
+    lambda02.contour_2d({"plate_imp": 3, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[1, 0])
+    lambda02.contour_2d({"plate_imp": 4, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[1, 1])
+    lambda02.contour_2d({"plate_imp": 5, "fab_class": 2, "f_yield": 0}, "lpf", ax=ax[1, 2])
+
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcA, f_yield: 700 MPa, lambda_flex: 0.2")
+    lambda02.contour_2d({"plate_imp": 0, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[0, 0])
+    lambda02.contour_2d({"plate_imp": 1, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[0, 1])
+    lambda02.contour_2d({"plate_imp": 2, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[0, 2])
+    lambda02.contour_2d({"plate_imp": 3, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[1, 0])
+    lambda02.contour_2d({"plate_imp": 4, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[1, 1])
+    lambda02.contour_2d({"plate_imp": 5, "fab_class": 0, "f_yield": 1}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcB, f_yield: 700 MPa, lambda_flex: 0.2")
+    lambda02.contour_2d({"plate_imp": 0, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[0, 0])
+    lambda02.contour_2d({"plate_imp": 1, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[0, 1])
+    lambda02.contour_2d({"plate_imp": 2, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[0, 2])
+    lambda02.contour_2d({"plate_imp": 3, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[1, 0])
+    lambda02.contour_2d({"plate_imp": 4, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[1, 1])
+    lambda02.contour_2d({"plate_imp": 5, "fab_class": 1, "f_yield": 1}, "lpf", ax=ax[1, 2])
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    fig.suptitle("fab_class: fcC, f_yield: 700 MPa, lambda_flex: 0.2")
+    lambda02.contour_2d({"plate_imp": 0, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[0, 0])
+    lambda02.contour_2d({"plate_imp": 1, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[0, 1])
+    lambda02.contour_2d({"plate_imp": 2, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[0, 2])
+    lambda02.contour_2d({"plate_imp": 3, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[1, 0])
+    lambda02.contour_2d({"plate_imp": 4, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[1, 1])
+    lambda02.contour_2d({"plate_imp": 5, "fab_class": 2, "f_yield": 1}, "lpf", ax=ax[1, 2])
+
+    return

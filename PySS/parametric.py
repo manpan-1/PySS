@@ -186,7 +186,7 @@ def parametric_run(
         # Open a file to collect the results
         with flck.FileLock('./' + prj_name + '_info.dat'):
             with open('./' + prj_name + '_info.dat', 'a') as out_file:
-                out_file.write(job_id + ", " + return_string + "\n")
+                out_file.write(job_id + "," + return_string + "\n")
 
         # Add the result of the current job to the return list
         prj_results = prj_results + [job_return]
