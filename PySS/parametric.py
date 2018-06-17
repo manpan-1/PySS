@@ -207,7 +207,7 @@ def parametric_run(
         with open(queue, "w") as f:
             f.write(str(curr_job_nr) + "," + str(curr_parallel_jobs - 1))
 
-    Return a list of results
+    #Return a list of results
     if removelog:
         os.remove(queue)
     return prj_results
