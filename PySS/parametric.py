@@ -5,6 +5,7 @@ from time import sleep
 from random import random
 import os
 import PySS.FileLock as flck
+import csv
 
 
 def testfunc(*args, **kargs):
@@ -19,7 +20,6 @@ def parametric_run(
     p_kargs=None,
     mk_subdirs=None,
     del_subdirs=None,
-    delay_jobs=None,
 ):
     """
     Run a parametric job.
@@ -73,10 +73,7 @@ def parametric_run(
 
     if del_subdirs is None:
         del_subdirs = False
-
-    if delay_jobs is None:
-        delay_jobs = False
-
+        
     # Pick up the parametric variables from the list of arguments
     if func_args:
         param_args = [func_args[x] for x in p_args]
@@ -95,35 +92,50 @@ def parametric_run(
     all_params = param_args + param_kargs
     combinations = list(product(*all_params))
 
-    # Check for existing "last_job.log" and if not, initialise a new one
-    queue = "last_job.log"
+    # Check for existing "last_job.tmp" and if not, initialise a new one
+    queue = "last_job_of_"+prj_name+".tmp"
     if not os.path.isfile(queue):
         with open(queue, "w+") as f:
             curr_job_nr = -1
-            f.write(str(curr_job_nr))
+            f.write(str(curr_job_nr) + ",00")
     else:
         with open(queue, "r") as f:
-            curr_job_nr = int(f.read())
+            reader = csv.reader(f)
+            info = list(reader)[0]
+            curr_job_nr = int(info[1])
+            if curr_job_nr == len(combinations):
+                print("A previous batch job exists in the directory. Check \"" + queue + "\"")
+                return
+            
 
     # Initiate a list for the results
     prj_results = []
 
     # Loop through the combinations of the given input values
-    while curr_job_nr < len(combinations)-1:
+    # while curr_job_nr < len(combinations)-1:
+    while True:
         with flck.FileLock(queue):
             with open(queue, "r+") as f:
-                curr_job_nr = int(f.read()) + 1
-                #TODO: check the break condition
-                if curr_job_nr == len(combinations):
+                reader = csv.reader(f)
+                info = list(reader)[0]
+                curr_job_nr = int(info[0]) + 1
+                curr_parallel_jobs = int(info[1]) + 1
+                if curr_job_nr >= len(combinations):
+                    if curr_parallel_jobs == 1:
+                        removelog = True
+                        
+                    f.seek(0)
+                    f.truncate()
+                    f.write(str(curr_job_nr) + "," + str(curr_parallel_jobs-1))
                     break
+                
                 f.seek(0)
                 f.truncate()
-                f.write(str(curr_job_nr))
+                f.write(str(curr_job_nr) + "," + str(curr_parallel_jobs))
 
         comb_case = combinations[curr_job_nr]
         # Construct an id string for the current job based on the combination. The string is formatted so that it does
         # contain any illegal characters for filename and abaqus job name usage.
-        # Python version checking is needed because the "translate" method has changed.
         if sys.version[0] == "2":
             job_id = str(comb_case).translate(None, ",.&*~!()[]{}|;:\'\"`<>?/\\")
         else:
@@ -136,11 +148,7 @@ def parametric_run(
             print("Job already exists: A directory with the same name'" + job_id + "' exists in the cwd")
             continue
 
-        # Wait some seconds to avoid multiple initiation of jobs
-        if delay_jobs is True:
-            sleep(round(10 * random(), 2))
-
-        if mk_subdirs is True:
+        if mk_subdirs:
             if os.path.isdir(job_id):
                 os.chdir(job_id)
             else:
@@ -186,7 +194,7 @@ def parametric_run(
         # Open a file to collect the results
         with flck.FileLock('./' + prj_name + '_info.dat'):
             with open('./' + prj_name + '_info.dat', 'a') as out_file:
-                out_file.write(job_id + "," + return_string + "\n")
+                out_file.write(job_id + "," + str(curr_job_nr) + "," + return_string + "\n")
 
         # Add the result of the current job to the return list
         prj_results = prj_results + [job_return]
@@ -194,8 +202,14 @@ def parametric_run(
         # Remove job's folder (only the output information is kept)
         if mk_subdirs and del_subdirs is True:
             rmtree(job_id)
+            
+        # Denote that the job is finished on the common .tmp file
+        with open(queue, "w") as f:
+            f.write(str(curr_job_nr) + "," + str(curr_parallel_jobs - 1))
 
-    # Return a list of results
+    Return a list of results
+    if removelog:
+        os.remove(queue)
     return prj_results
 
 def subdir_crawler(

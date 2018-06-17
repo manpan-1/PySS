@@ -477,7 +477,7 @@ class TheoreticalSpecimen(sd.Part):
         )
 
     @classmethod
-    def from_lambda_slenderness_radius(
+    def from_flex_slenderness_radius(
             cls,
             n_sides,
             r_circle,
