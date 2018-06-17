@@ -204,8 +204,16 @@ def parametric_run(
             rmtree(job_id)
             
         # Denote that the job is finished on the common .tmp file
-        with open(queue, "w") as f:
-            f.write(str(curr_job_nr) + "," + str(curr_parallel_jobs - 1))
+        with flck.FileLock(queue):
+            with open(queue, "r+") as f:
+                reader = csv.reader(f)
+                info = list(reader)[0]
+                curr_job_nr = int(info[0])
+                curr_parallel_jobs = int(info[1])
+
+                f.seek(0)
+                f.truncate()
+                f.write(str(curr_job_nr) + "," + str(curr_parallel_jobs - 1))
 
     #Return a list of results
     if removelog:
