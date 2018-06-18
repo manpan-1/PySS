@@ -31,7 +31,7 @@ class Experiment:
             self.channels = channels
         self.name = name
 
-    def plot2d(self, x_data, y_data, ax=None):
+    def plot2d(self, x_data, y_data, ax=None, scale=None):
         """
         Plot two recorded channels against each other.
 
@@ -53,8 +53,11 @@ class Experiment:
         elif not isinstance(ax, type(plt.axes())):
             print('Unexpected input type. Input argument `ax` must be of type `matplotlib.pyplot.axes()`')
             return NotImplemented
+        
+        if scale is None:
+            scale=(1, 1)
 
-        ax.plot(self.channels[x_data]["data"], self.channels[y_data]["data"], label=self.name)
+        ax.plot(self.channels[x_data]["data"]*scale[0], self.channels[y_data]["data"]*scale[1], label=self.name)
 
         plt.xlabel(x_data + ", [" + self.channels[x_data]["units"] + "]")
         plt.ylabel(y_data + ", [" + self.channels[y_data]["units"] + "]")
@@ -73,7 +76,7 @@ class Experiment:
 
         """
         self.channels[ch_name] = {}
-        self.channels[ch_name]["data"] = np.zeros([len(self.channels[next(iter(self.channels))]["data"]), 1])
+        self.channels[ch_name]["data"] = np.zeros([len(self.channels[next(iter(self.channels))]["data"])])
         self.channels[ch_name]["units"] = units
 
     def invert_sign(self, ch_name):

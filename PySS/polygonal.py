@@ -900,6 +900,15 @@ class TestData(lt.Experiment):
         self.cs_area = cs_area
 
         super().__init__(name=name, channels=channels)
+        
+        if channels:
+            facets = [int(i[:2]) for i in self.channels.keys() if len(i) == 3 and i[2] == "F"]
+            edges = [int(i[:2]) for i in self.channels.keys() if len(i) == 3 and i[2] == "C"]
+            self.facets_with_gauges = facets
+            if len(edges)<len(facets):
+                self.facets_with_gauges = edges
+        else:
+            self.facets_with_gauges = None
 
     def process_data(self):
         """
@@ -912,7 +921,7 @@ class TestData(lt.Experiment):
 
         """
         self.calc_avg_strain()
-        self.calc_disp_from_strain()
+        self.calc_disp()
         self.calc_avg_stress()
 
     #TODO: fix the add_Eccentricity method
@@ -967,11 +976,17 @@ class TestData(lt.Experiment):
 
         self.channels['Stroke']["data"] = self.channels['Stroke']["data"] - offset
 
-    def calc_disp_from_strain(self):
-        """Calculate the specimen clear axial deformation based on measured strains"""
-        self.add_new_channel_zeros('disp_clear', "mm")
-        self.channels['disp_clear']["data"] = self.channels['avg_strain']["data"] * self.specimen_length
+    def calc_disp(self):
+        """Calculate the specimen clear axial deformation based on measured strains and on the LVDTs"""
+        self.add_new_channel_zeros('disp_from_strain', "mm")
+        self.channels['disp_from_strain']["data"] = self.channels['avg_strain']["data"] * self.specimen_length
 
+        self.add_new_channel_zeros('disp_from_lvdt', "mm")
+        for i in range(4):
+            self.channels["disp_from_lvdt"]["data"] = self.channels["disp_from_lvdt"]["data"] + \
+                                                 self.channels["LVDT{}".format(i + 1)]["data"]
+        self.channels["disp_from_lvdt"]["data"] = self.channels["disp_from_lvdt"]["data"] / 4.
+        
     def calc_avg_strain(self):
         """Calculate the average strain from all strain gauges."""
         # Create new data channel.
@@ -981,13 +996,51 @@ class TestData(lt.Experiment):
         for key in self.channels.keys():
             if len(key) > 2:
                 if key[:2].isdigit() and (key[2] is 'F') or (key[2] is 'C'):
-                    print(key)
-                    print(type(self.channels['avg_strain']["data"]))
-                    print(type(self.channels[key]["data"]))
                     self.channels['avg_strain']["data"] = self.channels['avg_strain']["data"] + self.channels[key]["data"]
                     i += 1
 
         self.channels['avg_strain']["data"] = self.channels['avg_strain']["data"] / (i * 1e6)
+        
+    def plot_load_strain_gauges(self):
+        """Plot all the stain gauge channels against the load"""
+
+        fig1 = plt.figure()
+        plt.plot()
+        ax1 = fig1.axes[0]
+        fig2 = plt.figure()
+        plt.plot()
+        ax2 = fig2.axes[0]
+        
+        # Collect all strain gauge records.
+        for key in self.channels.keys():
+            if len(key) > 2:
+                if key[:2].isdigit() and (key[2] is 'F'):
+                    self.plot2d(key, "Load", scale=(-1, -1), ax=ax1)
+                elif key[:2].isdigit() and (key[2] is 'C'):
+                    self.plot2d(key, "Load", scale=(-1, -1), ax=ax2)
+                    
+    def plot_strain_gage_pair(self, facet_nr, ax=None):
+        """Plot a pair of face-edge strain gauges against the load"""
+        
+        if ax is None:
+            fig = plt.figure()
+            plt.plot()
+            ax = fig.axes[0]
+            self.plot2d("{:02d}C".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
+            self.plot2d("{:02d}F".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
+            ax.grid()
+            return ax
+        elif not isinstance(ax, type(plt.axes())):
+            print('Unexpected input type. Input argument `ax` must be of type `matplotlib.pyplot.axes()`')
+            return NotImplemented
+        else:
+            self.plot2d("{:02d}C".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
+            self.plot2d("{:02d}F".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
+            return ax
+        
+    def plot_all_strain_gage_pairs(self):
+        for i in self.facets_with_gauges:
+            self.plot_strain_gage_pair(i)
 
     def calc_avg_stress(self):
         """Calculate the average stress from the measured reaction force and the cross-section area."""
@@ -1073,11 +1126,12 @@ class TestData(lt.Experiment):
             fig = plt.figure()
             plt.plot()
             ax = fig.axes[0]
-            self.plot2d('disp_clear', 'Load', ax=ax)
+            self.plot2d('disp_from_lvdt', 'Load', ax=ax)
+            self.plot2d("disp_from_strain", "Load", ax=ax)
             ax.invert_xaxis()
             ax.invert_yaxis()
             handles, labels = ax.get_legend_handles_labels()
-            ax.legend(handles[::-1], labels[::-1])
+            ax.legend(["LVDT average", "strain * length average"])
             ax.set_xlabel('Displacement, u [mm]')
             ax.set_ylabel('Reaction, N [kN]')
             ax.grid()
