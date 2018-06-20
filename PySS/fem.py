@@ -71,17 +71,21 @@ class ParametricDB:
             ParametricDB
 
         """
-        with open(filename, 'rU') as infile:
-            reader = csv.reader(infile)
-            db = {c[0]: c[1:] for c in zip(*reader)}
+        # with open(filename, 'rU') as infile:
+        #     reader = csv.reader(infile)
+        #     db = {c[0]: c[1:] for c in zip(*reader)}
+
+        with open(filename, 'r') as infile:
+            all_lines = [[c.split(sep=":")[0]] + c.split(sep=":")[1].split(sep=",") for c in infile]
+            db = {c[0]: c[1:] for c in zip(*all_lines)}
 
         for key in db.keys():
-            if len(key.split("-")) > 1:
-                n_dim = len(key.split("-"))
+            if len(key.split("|")) > 1:
+                n_dim = len(key.split("|"))
                 dim_str = key
-        dim_ticks = np.array([c.split(sep="-") for c in db[dim_str]])
+        dim_ticks = np.array([c.split(sep="|") for c in db[dim_str]])
         dim_lengths = [len(set(dim_ticks[:, i])) for i in range(n_dim)]
-        dim_names = dim_str.split(sep="-")
+        dim_names = dim_str.split(sep="|")
         full_list = {i[0]: i[1:][0] for i in zip(dim_names, dim_ticks.T)}
 
         del db[dim_str]
