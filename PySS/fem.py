@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import csv
 from collections import namedtuple
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 import matplotlib.colors as mc
 
@@ -73,22 +74,34 @@ class ParametricDB:
         """
         # with open(filename, 'rU') as infile:
         #     reader = csv.reader(infile)
+        #     n_dim = int(next(reader)[0].split()[0])
         #     db = {c[0]: c[1:] for c in zip(*reader)}
 
-        with open(filename, 'r') as infile:
-            all_lines = [[c.split(sep=":")[0]] + c.split(sep=":")[1].split(sep=",") for c in infile]
-            db = {c[0]: c[1:] for c in zip(*all_lines)}
+        with open(filename, 'rU') as infile:
+            reader = csv.reader(infile)
+            n_dim = int(next(reader)[0].split()[0])
+            db = [c for c in zip(*reader)]
+            
+        all_responces = {i[0]: i[1:] for i in db[n_dim:]}
 
-        for key in db.keys():
-            if len(key.split("|")) > 1:
-                n_dim = len(key.split("|"))
-                dim_str = key
-        dim_ticks = np.array([c.split(sep="|") for c in db[dim_str]])
+        dim_ticks = np.array([i[1:] for i in db[:n_dim]]).T
         dim_lengths = [len(set(dim_ticks[:, i])) for i in range(n_dim)]
-        dim_names = dim_str.split(sep="|")
+        dim_names = [db[i][0] for i in range(n_dim)]
+
+        # with open(filename, 'r') as infile:
+        #     all_lines = [[c.split(sep=":")[0]] + c.split(sep=":")[1].split(sep=",") for c in infile]
+        #     db = {c[0]: c[1:] for c in zip(*all_lines)}
+
+        # for key in db.keys():
+        #     if len(key.split(",")) > 1:
+        #         n_dim = len(key.split(","))
+        #         dim_str = key
+        # dim_ticks = np.array([c.split(sep=",") for c in db[dim_str]])
+        # dim_lengths = [len(set(dim_ticks[:, i])) for i in range(n_dim)]
+        # dim_names = dim_str.split(sep=",")
         full_list = {i[0]: i[1:][0] for i in zip(dim_names, dim_ticks.T)}
 
-        del db[dim_str]
+        # del db[dim_str]
 
         #df = pd.DataFrame(full_dict)
 
@@ -96,10 +109,10 @@ class ParametricDB:
         args = [tuple(sorted(set(dim_ticks[:, i]))) for i, j in enumerate(dim_names)]
         addressbook = Address(*args)
 
-        mtx = {i: np.empty(dim_lengths) for i in db.keys()}
+        mtx = {i: np.empty(dim_lengths) for i in all_responces.keys()}
         #mtx = np.empty(dim_lengths)
-        for responce in db.keys():
-            for i, responce_value in enumerate(db[responce]):
+        for responce in all_responces.keys():
+            for i, responce_value in enumerate(all_responces[responce]):
                 current_idx = tuple(addressbook[idx].index(full_list[name][i]) for idx ,name in enumerate(dim_names))
                 mtx[responce][current_idx] = responce_value
             mtx[responce].flags.writeable = False
@@ -164,13 +177,48 @@ class ParametricDB:
 
         ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
         
-        # norm = mc.Normalize(vmin=0.4, vmax=1., clip=True)
-        levels = np.arange(0, 2., 0.025)
-        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
+        # levels = np.arange(0, 2., 0.025)
+        # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
+        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno)
         plt.clabel(sbplt, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
         ax.set_title(response+" for : "+ttl)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+
+        return ax
+
+    def surf_3d(self, slice_at, response, transpose=False, ax=None):
+        """
+        Surface plot.
+        :param slice_at:
+        :return:
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = Axes3D(fig)
+        else:
+            ax = ax
+
+        axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
+
+        if transpose:
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[1])], self.dimensions[self.get_idx(axes[0])])
+            Z = self.get_slice(slice_at, response).T
+            x_label, y_label = axes[1], axes[0]
+        else:
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[0])], self.dimensions[self.get_idx(axes[1])])
+            Z = self.get_slice(slice_at, response)
+            x_label, y_label = axes[0], axes[1]
+
+        ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
+
+        sbplt = ax.plot_surface(X.astype(np.float), Y.astype(np.float), Z.T)
+        # plt.clabel(sbplt, inline=1, fontsize=10)
+        ttl = [i for i in zip(slice_at.keys(), ttl_values)]
+        ttl = ", ".join(["=".join(i) for i in ttl])
+        ax.set_title(response + " for : " + ttl)
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
 

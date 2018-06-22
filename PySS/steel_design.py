@@ -78,6 +78,7 @@ class CsProps:
 
     def __init__(self,
                  area=None,
+                 a_eff=None,
                  xc=None,
                  yc=None,
                  moi_xx=None,
@@ -89,6 +90,7 @@ class CsProps:
                  ):
 
         self.area = area
+        self.a_eff = a_eff
         self.xc = xc
         self.yc = yc
         self.moi_xx = moi_xx
@@ -400,6 +402,7 @@ class StructProps:
                  lmbda_y=None,
                  lmbda_z=None,
                  n_pl_rd=None,
+                 n_b_rd=None,
                  n_b_rd_shell=None
                  ):
         self.t_classification = t_classification
@@ -407,6 +410,7 @@ class StructProps:
         self.lmbda_y = lmbda_y
         self.lmbda_z = lmbda_z
         self.n_pl_rd = n_pl_rd
+        self.n_b_rd = n_b_rd
         self.n_b_rd_shell = n_b_rd_shell
 
 
@@ -444,7 +448,7 @@ class Part:
 
 #TODO: Implement EN50341. Currently the resistance is calculated only for pure compression elements. Add interaction.
 
-def a_eff(
+def calc_a_eff(
         thickness,
         width,
         f_yield,
@@ -566,7 +570,7 @@ def n_pl_rd(
         psi = float(psi)
 
     # Axial compression resistance , Npl
-    nn_pl_rd = a_eff(thickness, width, f_yield, psi=None) * f_yield
+    nn_pl_rd = calc_a_eff(thickness, width, f_yield, psi=None) * f_yield
 
     # Return value
     return nn_pl_rd

@@ -326,9 +326,11 @@ class TheoreticalSpecimen(sd.Part):
         flat_area = n_sides * facet_flat_width * thickness
         cs_props.area = corner_area + flat_area
 
+        cs_props.a_eff = n_sides * sd.calc_a_eff(thickness, facet_flat_width, f_yield) + corner_area
+
         lmbda_y = sd.lmbda_flex(
             length,
-            cs_props.area,
+            cs_props.a_eff,
             cs_props.moi_1,
             kapa_bc=1.,
             e_modulus=material.e_modulus,
@@ -337,7 +339,7 @@ class TheoreticalSpecimen(sd.Part):
 
         lmbda_z = sd.lmbda_flex(
             length,
-            cs_props.area,
+            cs_props.a_eff,
             cs_props.moi_2,
             kapa_bc=1.,
             e_modulus=material.e_modulus,
@@ -345,7 +347,7 @@ class TheoreticalSpecimen(sd.Part):
         )
 
         # Axial compression resistance , Npl (acc. to EC3-1-5)
-        n_pl_rd = n_sides * sd.n_pl_rd(thickness, facet_flat_width, f_yield) + corner_area * f_yield
+        n_pl_rd = cs_props.a_eff * f_yield
 
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
         n_b_rd_shell = 2 * np.pi * r_circle * thickness * sd.sigma_x_rd(
@@ -360,6 +362,9 @@ class TheoreticalSpecimen(sd.Part):
         # Plate classification (acc. to EC3-1-1)
         p_classification = facet_flat_width / (epsilon * thickness)
 
+        # Buckling load
+        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_yield, "d")
+
         # Tube classification slenderness acc. to EC3-1-1
         t_classification = 2 * r_circle / (epsilon ** 2 * thickness)
 
@@ -369,6 +374,7 @@ class TheoreticalSpecimen(sd.Part):
             lmbda_y=lmbda_y,
             lmbda_z=lmbda_z,
             n_pl_rd=n_pl_rd,
+            n_b_rd=n_b_rd,
             n_b_rd_shell=n_b_rd_shell
         )
 
@@ -558,7 +564,7 @@ class TheoreticalSpecimen(sd.Part):
         cs_props = sd.CsProps.from_cs_sketch(sd.CsSketch(nodes, elem))
 
         # Effective cross section area, A_eff
-        a_eff = n_sides * sd.a_eff(thickness, facet_flat_width, f_yield) + corner_area
+        a_eff = n_sides * sd.calc_a_eff(thickness, facet_flat_width, f_yield) + corner_area
 
         # Calculate column length for the given flexural slenderness.
         length = lambda_flex * np.pi * np.sqrt(210000. * cs_props.moi_1 / (a_eff * f_yield))
