@@ -401,17 +401,26 @@ class StructProps:
                  p_classification=None,
                  lmbda_y=None,
                  lmbda_z=None,
+                 n_cr_plate=None,
+                 sigma_cr_plate=None,
                  n_pl_rd=None,
                  n_b_rd=None,
+                 sigma_cr_shell=None,
+                 n_cr_shell=None,
                  n_b_rd_shell=None
                  ):
         self.t_classification = t_classification
         self.p_classification = p_classification
         self.lmbda_y = lmbda_y
         self.lmbda_z = lmbda_z
+        self.n_cr_plate = n_cr_plate
+        self.sigma_cr_plate = sigma_cr_plate
         self.n_pl_rd = n_pl_rd
         self.n_b_rd = n_b_rd
+        self.sigma_cr_shell = sigma_cr_shell
+        self.n_cr_shell = n_cr_shell
         self.n_b_rd_shell = n_b_rd_shell
+
 
 
 class Part:

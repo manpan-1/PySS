@@ -346,8 +346,20 @@ class TheoreticalSpecimen(sd.Part):
             f_yield=material.f_yield
         )
 
+        # Critical stress acc. to plate theory.
+        sigma_cr_plate = sd.sigma_cr_plate(thickness, facet_flat_width)
+
+        # Critical load acc. to plate theory.
+        n_cr_plate = np.pi * 2 * r_circle * thickness * sigma_cr_plate
+
         # Axial compression resistance , Npl (acc. to EC3-1-5)
         n_pl_rd = cs_props.a_eff * f_yield
+
+        # Critical stress acc. to shell theory.
+        sigma_cr_shell = sd.sigma_x_rcr(thickness, r_circle, length)[0]
+
+        # Critical load acc. to shell theory.
+        n_cr_shell = sd.n_cr_shell(thickness, r_circle, length)
 
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
         n_b_rd_shell = 2 * np.pi * r_circle * thickness * sd.sigma_x_rd(
@@ -373,8 +385,12 @@ class TheoreticalSpecimen(sd.Part):
             p_classification=p_classification,
             lmbda_y=lmbda_y,
             lmbda_z=lmbda_z,
+            n_cr_plate=n_cr_plate,
+            sigma_cr_plate=sigma_cr_plate,
             n_pl_rd=n_pl_rd,
             n_b_rd=n_b_rd,
+            sigma_cr_shell=sigma_cr_shell,
+            n_cr_shell=n_cr_shell,
             n_b_rd_shell=n_b_rd_shell
         )
 

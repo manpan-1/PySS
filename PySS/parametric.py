@@ -55,7 +55,7 @@ def update_job_status(filename, job_nr, new_status):
             f.writelines(lines)
 
 
-def parametric_run(
+def run_factorial(
     prj_name,
     exec_func,
     func_args=None,
@@ -382,6 +382,7 @@ def parametric_run(
     # if removelog:
     #     os.remove(queue)
     # return prj_results
+
 
 def subdir_crawler(
         exec_func,
