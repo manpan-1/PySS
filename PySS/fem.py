@@ -160,6 +160,7 @@ class ParametricDB:
         :return:
         """
         if ax is None:
+            plt.figure()
             ax = plt.axes()
         else:
             ax = ax
@@ -223,49 +224,6 @@ class ParametricDB:
         ax.set_ylabel(y_label)
 
         return ax
-
-    # def animate_2d(self, slice_at, response, time=None):
-    #     """
-    #     Animate a contour plot for a parameter.
-    # 
-    #     Parameters
-    #     ----------
-    #     slice_at : dict
-    #         Dictionary of keys corresponding slicing dimensions and theyr slicing values.
-    # 
-    #     Notes
-    #     -----
-    #     found @ https://stackoverflow.com/questions/23070305/how-can-i-make-an-animation-with-contourf/38401705
-    #     by Iury Sousa
-    # 
-    #     """
-    #     axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
-    # 
-    #     if time is None:
-    #         time = axes[-1]
-    # 
-    #     data = self.get_slice(slice_at, response)
-    #     length = data.shape[2]
-    # 
-    #     ax = self.contour_2d({**slice_at, **{time: 0}}, response)
-    #     fig = plt.gcf()
-    # 
-    #     # X, Y = np.meshgrid(self.addressbook[self.get_idx(axes[0])], self.addressbook[self.get_idx(axes[1])])
-    #     # Z = self.get_slice(slice_at, response)
-    #     # ax.contour(X.astype(np.float), Y.astype(np.float), Z[:, :, 0].T)
-    # 
-    #     def animate(i):
-    #         ax = plt.gca()
-    #         ax.clear()
-    #         ax = self.contour_2d({**slice_at, **{time: i}}, response, fig=fig)
-    #         return ax
-    # 
-    #     interval = 1  # in seconds
-    #     ani = animation.FuncAnimation(fig, animate, length, interval=interval*1e+3)
-    # 
-    #     plt.show()
-    # 
-    #     return ani
 
 
 def main():

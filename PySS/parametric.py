@@ -12,6 +12,34 @@ def testfunc(*args, **kargs):
     return("")
 
 
+# Return a list with all the divisors of a numbers
+def divisors(n):
+    """
+    Divisors of an integer.
+
+    Return all the possible divisors for a given integer.
+
+    Parameters
+    ----------
+    n: int
+
+    Returns
+    -------
+    int
+
+    Notes
+    -----
+
+    """
+    large_divisors = []
+    for i in range(1, int(n**.5 + 1)):
+        if n % i == 0:
+            yield i
+            if i * i != n:
+                large_divisors.append(int(n / i))
+    for divisor in reversed(large_divisors):
+        yield divisor
+
 def get_queued(filename):
     """Read a batch info file and return the indexes of the queued jobs"""
     queue = []
@@ -25,6 +53,7 @@ def get_queued(filename):
                 if curr_line[-1] == "QUEUED\n":
                     queue.append(i)
     return queue
+
 
 def goto_next_queued(filename):
     """Read a batch info file and return the indexes of the queued jobs"""
@@ -41,6 +70,7 @@ def goto_next_queued(filename):
                     f.writelines(lines)
                 return i
         return False
+
 
 def update_job_status(filename, job_nr, new_status):
     """Change status of a job number on a batch status file"""

@@ -253,6 +253,7 @@ class Material:
         self.poisson = poisson
         self.f_yield = f_yield
         self.plasticity = plasticity
+        self.epsilon = np.sqrt(235. / f_yield)
 
     @staticmethod
     def plastic_table(nominal=None):

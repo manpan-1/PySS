@@ -85,7 +85,7 @@ class PolygonalColumn:
                     fab_class
                 )
             elif r_circle is None:
-                self.theoretical_specimen = TheoreticalSpecimen.from_slenderness_and_thickness(
+                self.theoretical_specimen = TheoreticalSpecimen.from_pclass_thickness_length(
                     n_sides,
                     p_class,
                     thickness,
@@ -94,7 +94,7 @@ class PolygonalColumn:
                     fab_class
                 )
             else:
-                self.theoretical_specimen = TheoreticalSpecimen.from_slenderness_and_radius(
+                self.theoretical_specimen = TheoreticalSpecimen.from_pclass_radius_length(
                     n_sides,
                     r_circle,
                     p_class,
@@ -237,12 +237,12 @@ class TheoreticalSpecimen(sd.Part):
     def from_geometry(
             cls,
             n_sides,
-            r_circle,
+            r_cyl,
             thickness,
             length,
-            f_yield,
+            f_y,
             fab_class,
-            arc_to_thickness=3.
+            a_b=3.
     ):
         """
         Create theoretical polygonal column object for given geometric data.
@@ -254,51 +254,79 @@ class TheoreticalSpecimen(sd.Part):
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
-        r_circle : float
+        r_cyl : float
             Radius of the circle circumscribed to the polygon.
         thickness : float
             Thickness of the cross-section.
         length : float
             Length of the column.
-        f_yield : float
+        f_y : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
+        a_b : float
+            Corner bending radius over thickness ratio
 
         """
 
         # Create material
-        material = sd.Material(210000., 0.3, f_yield)
-        epsilon = np.sqrt(235. / f_yield)
+        material = sd.Material(210000., 0.3, f_y)
 
         # Bending radius
-        r_bend = arc_to_thickness * thickness
+        r_b = a_b * thickness
+        
+        # Theta angle
+        theta = np.pi / n_sides
 
         # Radius of the polygon's circumscribed circle
-        r_circum = (np.pi * r_circle + r_bend * (n_sides * np.tan(np.pi/n_sides) - np.pi)) / (n_sides * np.sin(np.pi/n_sides))
-        #r_circum = (np.pi * r_circle) / (n_sides * np.sin(np.pi / n_sides))
-
-        # Central angles
-        theta = 2 * np.pi / n_sides
+        r_p = (np.pi * r_cyl + a_b * thickness * (n_sides * np.tan(theta) - np.pi)) / (n_sides * np.sin(theta))
 
         # Width of each side
-        facet_width = 2 * r_circum * np.sin(np.pi / n_sides)
+        bbbb = 2 * r_p * np.sin(theta)
 
         # Width of the corner bend half arc projection on the plane of the facet
-        arc_width = r_bend * np.tan(np.pi / n_sides)
+        b_c = r_b * np.tan(theta)
 
         # Flat width of each facet (excluding the bended arcs)
-        facet_flat_width = facet_width - 2 * arc_width
+        cccc = bbbb - 2 * b_c
+        
+        # Cross sectional area
+        area = 2 * np.pi * r_cyl * thickness
+        
+        # Moment of inertia
+        b_o = bbbb + thickness * np.tan(theta)
+        alfa = thickness * np.tan(theta) / b_o
+        moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3 + 1 / (np.tan(theta) ** 2)) * (1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
+        
+        # Effective vross secion area
+        corner_area = 2 * np.pi * r_b * thickness
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
+        
+        # Gather all cross sectional properties in an appropriate class
+        cs_props = sd.CsProps(
+            area=area,
+            a_eff=a_eff,
+            xc=0.,
+            yc=0.,
+            moi_xx=moi,
+            moi_yy=moi,
+            moi_xy=0.,
+            moi_1=moi,
+            moi_2=moi)
 
+        # cs_props = sd.CsProps.from_cs_sketch(cs_sketch)
+        cs_props.max_dist = r_p
+        cs_props.min_dist = np.sqrt(r_p ** 2 - (bbbb / 2) ** 2)
+        
         # Polar coordinate of the polygon vertices on the cross-section plane
         phii = []
         for i_index in range(n_sides):
             phii.append(i_index * theta)
 
         # Polygon corners coordinates.
-        x_corners = tuple(r_circum * np.cos(phii))
-        y_corners = tuple(r_circum * np.sin(phii))
+        x_corners = tuple(r_p * np.cos(phii))
+        y_corners = tuple(r_p * np.sin(phii))
 
         # Cross-sectional properties
         nodes = [x_corners, y_corners]
@@ -312,21 +340,12 @@ class TheoreticalSpecimen(sd.Part):
         geometry = sd.Geometry(cs_sketch, length, thickness)
 
         # Additional geometric properties (exclusive to the polygonal)
-        geometry.r_circle = r_circle
-        geometry.r_circumscribed = r_circum
-        geometry.facet_width = facet_width
-        geometry.facet_flat_width = facet_flat_width
+        geometry.r_circle = r_cyl
+        geometry.r_circumscribed = r_p
+        geometry.facet_width = bbbb
+        geometry.facet_flat_width = cccc
         geometry.n_sides = n_sides
-        geometry.r_bend = r_bend
-
-        cs_props = sd.CsProps.from_cs_sketch(cs_sketch)
-        cs_props.max_dist = r_circum
-        cs_props.min_dist = np.sqrt(r_circum ** 2 - (facet_width / 2) ** 2)
-        corner_area = 2 * np.pi * r_bend * thickness
-        flat_area = n_sides * facet_flat_width * thickness
-        cs_props.area = corner_area + flat_area
-
-        cs_props.a_eff = n_sides * sd.calc_a_eff(thickness, facet_flat_width, f_yield) + corner_area
+        geometry.r_bend = r_b
 
         lmbda_y = sd.lmbda_flex(
             length,
@@ -337,48 +356,41 @@ class TheoreticalSpecimen(sd.Part):
             f_yield=material.f_yield
         )
 
-        lmbda_z = sd.lmbda_flex(
-            length,
-            cs_props.a_eff,
-            cs_props.moi_2,
-            kapa_bc=1.,
-            e_modulus=material.e_modulus,
-            f_yield=material.f_yield
-        )
+        lmbda_z = lmbda_y
+
+        # Plate classification (acc. to EC3-1-1)
+        p_classification = cccc / (material.epsilon * thickness)
 
         # Critical stress acc. to plate theory.
-        sigma_cr_plate = sd.sigma_cr_plate(thickness, facet_flat_width)
+        sigma_cr_plate = sd.sigma_cr_plate(thickness, cccc)
 
         # Critical load acc. to plate theory.
-        n_cr_plate = np.pi * 2 * r_circle * thickness * sigma_cr_plate
+        n_cr_plate = cs_props.area * sigma_cr_plate
 
-        # Axial compression resistance , Npl (acc. to EC3-1-5)
-        n_pl_rd = cs_props.a_eff * f_yield
+        # Axial compression resistance, Npl (acc. to EC3-1-5)
+        n_pl_rd = cs_props.a_eff * f_y
+
+        # Buckling load
+        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_y, "d")
+
+        # Tube classification slenderness acc. to EC3-1-1
+        t_classification = 2 * r_cyl / (material.epsilon ** 2 * thickness)
 
         # Critical stress acc. to shell theory.
-        sigma_cr_shell = sd.sigma_x_rcr(thickness, r_circle, length)[0]
+        sigma_cr_shell = sd.sigma_x_rcr(thickness, r_cyl, length)[0]
 
         # Critical load acc. to shell theory.
-        n_cr_shell = sd.n_cr_shell(thickness, r_circle, length)
+        n_cr_shell = sd.n_cr_shell(thickness, r_cyl, length)
 
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
-        n_b_rd_shell = 2 * np.pi * r_circle * thickness * sd.sigma_x_rd(
+        n_b_rd_shell = 2 * np.pi * r_cyl * thickness * sd.sigma_x_rd(
             thickness,
-            r_circle,
+            r_cyl,
             length,
-            f_yield,
+            f_y,
             fab_quality=fab_class,
             gamma_m1=1.
         )
-
-        # Plate classification (acc. to EC3-1-1)
-        p_classification = facet_flat_width / (epsilon * thickness)
-
-        # Buckling load
-        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_yield, "d")
-
-        # Tube classification slenderness acc. to EC3-1-1
-        t_classification = 2 * r_circle / (epsilon ** 2 * thickness)
 
         struct_props = sd.StructProps(
             t_classification=t_classification,
@@ -398,15 +410,15 @@ class TheoreticalSpecimen(sd.Part):
         return cls(geometry, cs_props, material, struct_props)
 
     @classmethod
-    def from_slenderness_and_thickness(
+    def from_pclass_thickness_length(
             cls,
             n_sides,
             p_classification,
             thickness,
             length,
-            f_yield,
+            f_y,
             fab_class,
-            arc_to_thickness=3.
+            a_b=3.
     ):
         """
         Create theoretical polygonal column object for given plate slenderness and thickness.
@@ -424,7 +436,7 @@ class TheoreticalSpecimen(sd.Part):
             Thickness of the cross-section.
         length : float
             Length of the column.
-        f_yield : float
+        f_y : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
@@ -433,31 +445,31 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_yield)
+        epsilon = np.sqrt(235. / f_y)
 
         # Radius of the equal perimeter cylinder
-        r_circle = (n_sides * thickness / np.pi) * ((p_classification * epsilon / 2) + arc_to_thickness * np.tan(np.pi / n_sides))
-        #r_circle = n_sides * thickness * epsilon * p_classification / (2 * np.pi)
+        #r_circle = (n_sides * thickness / np.pi) * ((p_classification * epsilon / 2) + arc_to_thickness * np.tan(np.pi / n_sides))
+        r_circle = thickness*(n_sides * p_classification * epsilon / (2*np.pi) + a_b)
 
         return cls.from_geometry(
             n_sides,
             r_circle,
             thickness,
             length,
-            f_yield,
+            f_y,
             fab_class
         )
 
     @classmethod
-    def from_slenderness_and_radius(
+    def from_pclass_radius_length(
             cls,
             n_sides,
-            r_circle,
+            r_cyl,
             p_classification,
             length,
-            f_yield,
+            f_y,
             fab_class,
-            arc_to_thickness=3.
+            a_b=3.
     ):
         """
         Create theoretical polygonal column object for given plate slenderness and radius.
@@ -469,13 +481,13 @@ class TheoreticalSpecimen(sd.Part):
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
-        r_circle : float
+        r_cyl : float
             Radius of the circle circumscribed to the polygon.
         p_classification : float
             Facet slenderness, c/(ε*t).
         length : float
             Length of the column.
-        f_yield : float
+        f_y : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
@@ -483,31 +495,59 @@ class TheoreticalSpecimen(sd.Part):
 
         """
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_yield)
+        epsilon = np.sqrt(235. / f_y)
 
         # Calculate the thickness
-        thickness = r_circle * np.pi / (n_sides * (p_classification * epsilon / 2 + arc_to_thickness * np.tan(np.pi / n_sides)))
-        #thickness = 2 * np.pi * r_circle / (n_sides * epsilon * p_classification)
+        thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
 
+        return cls.from_geometry(
+            n_sides,
+            r_cyl,
+            thickness,
+            length,
+            f_y,
+            fab_class
+        )
+    
+    @classmethod
+    def from_pclass_area_length(
+            cls,
+            n_sides,
+            p_classification,
+            area,
+            length,
+            f_y,
+            fab_class,
+            a_b=3
+    ):
+        # Epsilon for the material
+        epsilon = np.sqrt(235. / f_y)
+        
+        # Thickness
+        thickness = np.sqrt(area // (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
+        
+        # Radius of equivalent cylinder
+        r_circle  = area / (2 * np.pi * thickness)
+        
         return cls.from_geometry(
             n_sides,
             r_circle,
             thickness,
             length,
-            f_yield,
+            f_y,
             fab_class
         )
 
     @classmethod
-    def from_flex_slenderness_radius(
+    def from_pclass_radius_flexslend(
             cls,
             n_sides,
-            r_circle,
+            r_cyl,
             p_classification,
             lambda_flex,
-            f_yield,
+            f_y,
             fab_class,
-            arc_to_thickness=3.
+            a_b=3.
     ):
         """
         Create theoretical polygonal column object for given plate slenderness, radius and flexural slenderness.
@@ -519,79 +559,64 @@ class TheoreticalSpecimen(sd.Part):
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
-        r_circle : float
+        r_cyl : float
             Radius of the circle circumscribed to the polygon.
         p_classification : float
             Facet slenderness, c/(ε*t).
         length : float
             Length of the column.
-        f_yield : float
+        f_y : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
 
         """
+
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_yield)
+        epsilon = np.sqrt(235. / f_y)
 
         # Calculate the thickness
-        thickness = r_circle * np.pi / (n_sides * (p_classification * epsilon / 2 + arc_to_thickness * np.tan(np.pi / n_sides)))
+        thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
 
         # Bending radius
-        r_bend = arc_to_thickness * thickness
+        r_b = a_b * thickness
 
-        # Radius of the polygon's circumscribed circle.
-        r_circum = (np.pi * r_circle + r_bend * (n_sides * np.tan(np.pi / n_sides) - np.pi)) / (n_sides * np.sin(np.pi / n_sides))
+        # Theta angle
+        theta = np.pi / n_sides
 
-        # Width of each side.
-        w_side = 2 * r_circum * np.sin(np.pi / n_sides)
+        # Radius of the polygon's circumscribed circle
+        r_p = (np.pi * r_cyl + a_b * thickness * (n_sides * np.tan(theta) - np.pi)) / (n_sides * np.sin(theta))
+
+        # Width of each side
+        bbbb = 2 * r_p * np.sin(theta)
 
         # Width of the corner bend half arc projection on the plane of the facet
-        arc_width = r_bend * np.tan(np.pi / n_sides)
+        b_c = r_b * np.tan(theta)
 
         # Flat width of each facet (excluding the bended arcs)
-        facet_flat_width = w_side - 2 * arc_width
+        cccc = bbbb - 2 * b_c
 
-        # Total cross-sectional area of the bended corners
-        corner_area = 2 * np.pi * r_bend * thickness
+        # Moment of inertia
+        b_o = bbbb + thickness * np.tan(theta)
+        alfa = thickness * np.tan(theta) / b_o
+        moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3 + 1 / (np.tan(theta) ** 2)) * (
+                    1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
 
-        # Central angles
-        theta = 2 * np.pi / n_sides
-
-        # Polar coordinate of ths polygon vertices on the cross-section plane.
-        phii = []
-        for i_index in range(n_sides):
-            phii.append(i_index * theta)
-
-        # Coordinates of the polygon vertices.
-        x_corners = r_circum * np.cos(phii)
-        y_corners = r_circum * np.sin(phii)
-
-        # Cross-sectional properties
-        nodes = [x_corners, y_corners]
-        elem = [
-            list(range(0, len(x_corners))),
-            list(range(1, len(x_corners))) + [0],
-            len(x_corners) * [thickness]
-        ]
-
-        # Cross-sectional properties
-        cs_props = sd.CsProps.from_cs_sketch(sd.CsSketch(nodes, elem))
-
-        # Effective cross section area, A_eff
-        a_eff = n_sides * sd.calc_a_eff(thickness, facet_flat_width, f_yield) + corner_area
+        # Effective vross secion area
+        corner_area = 2 * np.pi * r_b * thickness
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
 
         # Calculate column length for the given flexural slenderness.
-        length = lambda_flex * np.pi * np.sqrt(210000. * cs_props.moi_1 / (a_eff * f_yield))
+        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y))
 
         #TODO: Instead of calling the "from_geometry", the object could be created directly here...
         return cls.from_geometry(
             n_sides,
-            r_circle,
+            r_cyl,
             thickness,
             length,
-            f_yield,
+            f_y,
             fab_class
         )
 
