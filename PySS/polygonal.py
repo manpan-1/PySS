@@ -524,7 +524,7 @@ class TheoreticalSpecimen(sd.Part):
         epsilon = np.sqrt(235. / f_y)
         
         # Thickness
-        thickness = np.sqrt(area // (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
+        thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
         
         # Radius of equivalent cylinder
         r_circle  = area / (2 * np.pi * thickness)
@@ -538,6 +538,58 @@ class TheoreticalSpecimen(sd.Part):
             fab_class
         )
 
+    @classmethod
+    def from_radius_thickness_flexslend(
+            cls,
+            n_sides,
+            r_cyl,
+            thickness,
+            lambda_flex,
+            f_y,
+            fab_class,
+            a_b=3.
+    ):
+        # Bending radius
+        r_b = a_b * thickness
+
+        # Theta angle
+        theta = np.pi / n_sides
+
+        # Radius of the polygon's circumscribed circle
+        r_p = (np.pi * r_cyl + a_b * thickness * (n_sides * np.tan(theta) - np.pi)) / (n_sides * np.sin(theta))
+
+        # Width of each side
+        bbbb = 2 * r_p * np.sin(theta)
+
+        # Width of the corner bend half arc projection on the plane of the facet
+        b_c = r_b * np.tan(theta)
+
+        # Flat width of each facet (excluding the bended arcs)
+        cccc = bbbb - 2 * b_c
+
+        # Moment of inertia
+        b_o = bbbb + thickness * np.tan(theta)
+        alfa = thickness * np.tan(theta) / b_o
+        moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3 + 1 / (np.tan(theta) ** 2)) * (
+                    1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
+
+        # Effective cross secion area
+        corner_area = 2 * np.pi * r_b * thickness
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
+
+        # Calculate column length for the given flexural slenderness.
+        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y))
+
+        return cls.from_geometry(
+            n_sides,
+            r_cyl,
+            thickness,
+            length,
+            f_y,
+            fab_class,
+            a_b=a_b
+        )
+    
     @classmethod
     def from_pclass_radius_flexslend(
             cls,
@@ -579,45 +631,14 @@ class TheoreticalSpecimen(sd.Part):
         # Calculate the thickness
         thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
 
-        # Bending radius
-        r_b = a_b * thickness
-
-        # Theta angle
-        theta = np.pi / n_sides
-
-        # Radius of the polygon's circumscribed circle
-        r_p = (np.pi * r_cyl + a_b * thickness * (n_sides * np.tan(theta) - np.pi)) / (n_sides * np.sin(theta))
-
-        # Width of each side
-        bbbb = 2 * r_p * np.sin(theta)
-
-        # Width of the corner bend half arc projection on the plane of the facet
-        b_c = r_b * np.tan(theta)
-
-        # Flat width of each facet (excluding the bended arcs)
-        cccc = bbbb - 2 * b_c
-
-        # Moment of inertia
-        b_o = bbbb + thickness * np.tan(theta)
-        alfa = thickness * np.tan(theta) / b_o
-        moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3 + 1 / (np.tan(theta) ** 2)) * (
-                    1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
-
-        # Effective vross secion area
-        corner_area = 2 * np.pi * r_b * thickness
-        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
-
-        # Calculate column length for the given flexural slenderness.
-        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y))
-
-        #TODO: Instead of calling the "from_geometry", the object could be created directly here...
-        return cls.from_geometry(
+        return cls.from_radius_thickness_flexslend(
             n_sides,
             r_cyl,
             thickness,
-            length,
+            lambda_flex,
             f_y,
-            fab_class
+            fab_class,
+            a_b=a_b
         )
 
 

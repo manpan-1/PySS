@@ -229,6 +229,7 @@ class CsProps:
             moi_2=moi_2
         )
 
+
 # TODO: check the plastic table values. expand the library
 class Material:
     """
@@ -421,7 +422,6 @@ class StructProps:
         self.sigma_cr_shell = sigma_cr_shell
         self.n_cr_shell = n_cr_shell
         self.n_b_rd_shell = n_b_rd_shell
-
 
 
 class Part:
@@ -628,11 +628,11 @@ def plate_class(
 
     # Calculate classification
     classification = width / (thickness * np.sqrt(235. / f_yield))
-    if classification <= 33.:
+    if classification <= 33.01:
         p_class = 1
-    elif classification <= 38.:
+    elif classification <= 38.01:
         p_class = 2
-    elif classification <= 42.:
+    elif classification <= 42.01:
         p_class = 3
     else:
         p_class = 4
