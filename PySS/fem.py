@@ -78,7 +78,7 @@ class ParametricDB:
         #     db = {c[0]: c[1:] for c in zip(*reader)}
 
         with open(filename, 'rU') as infile:
-            reader = csv.reader(infile)
+            reader = csv.reader(infile, delimiter=";")
             n_dim = int(next(reader)[0].split()[0])
             db = [c for c in zip(*reader)]
             
@@ -110,10 +110,9 @@ class ParametricDB:
         addressbook = Address(*args)
 
         mtx = {i: np.empty(dim_lengths) for i in all_responces.keys()}
-        #mtx = np.empty(dim_lengths)
         for responce in all_responces.keys():
             for i, responce_value in enumerate(all_responces[responce]):
-                current_idx = tuple(addressbook[idx].index(full_list[name][i]) for idx ,name in enumerate(dim_names))
+                current_idx = tuple(addressbook[idx].index(full_list[name][i]) for idx, name in enumerate(dim_names))
                 mtx[responce][current_idx] = responce_value
             mtx[responce].flags.writeable = False
 
@@ -153,18 +152,25 @@ class ParametricDB:
         """
         return(self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
-    def contour_2d(self, slice_at, response, transpose=False, ax=None):
+    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None):
         """
         Contour plot.
         :param slice_at:
         :return:
         """
-        if ax is None:
-            plt.figure()
-            ax = plt.axes()
+        plt.rc('text', usetex=True)
+        if fig is None:
+            fig = plt.figure()
+            if sbplt is None:
+                ax = fig.add_subplot(111)
+            else:
+                ax = fig.add_subplot(sbplt)
         else:
-            ax = ax
-
+            if sbplt is None:
+                ax = fig.add_subplot(111)
+            else:
+                ax = fig.add_subplot(sbplt)
+        
         axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
         if transpose:
@@ -180,27 +186,42 @@ class ParametricDB:
         
         # levels = np.arange(0, 2., 0.025)
         # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
-        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno)
+        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r)
+        sbplt2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno)
         plt.clabel(sbplt, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
-        ax.set_title(response+" for : "+ttl)
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
+        ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        ax.set_xlabel("$"+x_label+"$")
+        ax.set_ylabel("$"+y_label+"$")
 
-        return ax
+        return fig
 
-    def surf_3d(self, slice_at, response, transpose=False, ax=None):
+    def surf_3d(self, slice_at, response, transpose=False, fig=None, sbplt=None):
         """
         Surface plot.
         :param slice_at:
         :return:
         """
-        if ax is None:
+        #Convenient window dimensions
+        # one subplot:  
+        # 2 side by side: Bbox(x0=0.0, y0=0.0, x1=6.79, y1=2.57)
+        # azim elev =  -160  30
+        # 4 subplots: Bbox(x0=0.0, y0=0.0, x1=6.43, y1=5.14)
+        #azim elev -160 30
+        plt.rc('text', usetex=True)
+        if fig is None:
             fig = plt.figure()
-            ax = Axes3D(fig)
+            if sbplt is None:
+                ax = fig.add_subplot(111, projection='3d')
+            else:
+                ax = fig.add_subplot(sbplt, projection='3d')
         else:
-            ax = ax
+            if sbplt is None:
+                ax = fig.add_subplot(111, projection='3d')
+            else:
+                ax = fig.add_subplot(sbplt, projection='3d')
+        
 
         axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
@@ -215,15 +236,21 @@ class ParametricDB:
 
         ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
 
-        sbplt = ax.plot_surface(X.astype(np.float), Y.astype(np.float), Z.T)
+        sbplt = ax.plot_surface(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno)
         # plt.clabel(sbplt, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
-        ax.set_title(response + " for : " + ttl)
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
+        ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        ax.set_xlabel("$"+x_label+"$")
+        ax.set_ylabel("$"+y_label+"$")
 
-        return ax
+        return fig
+
+
+def match_viewports(fig=None):
+    if fig is None:
+        fig = plt.gcf()
+    fig.axes[1].view_init(azim=fig.axes[0].azim, elev=fig.axes[0].elev)
 
 
 def main():

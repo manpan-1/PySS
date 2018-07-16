@@ -406,10 +406,18 @@ class StructProps:
                  n_cr_plate=None,
                  sigma_cr_plate=None,
                  n_pl_rd=None,
-                 n_b_rd=None,
+                 n_b_rd_plate=None,
+                 sigma_b_rd_plate=None,
                  sigma_cr_shell=None,
+                 sigma_cr_shell_new=None,
+                 lenca=None,
+                 lenca_new=None,
                  n_cr_shell=None,
-                 n_b_rd_shell=None
+                 n_cr_shell_new=None,
+                 sigma_b_rd_shell=None,
+                 sigma_b_rd_shell_new=None,
+                 n_b_rd_shell=None,
+                 n_b_rd_shell_new=None
                  ):
         self.t_classification = t_classification
         self.p_classification = p_classification
@@ -418,10 +426,18 @@ class StructProps:
         self.n_cr_plate = n_cr_plate
         self.sigma_cr_plate = sigma_cr_plate
         self.n_pl_rd = n_pl_rd
-        self.n_b_rd = n_b_rd
+        self.n_b_rd_plate = n_b_rd_plate
+        self.sigma_b_rd_plate = sigma_b_rd_plate
         self.sigma_cr_shell = sigma_cr_shell
+        self.sigma_cr_shell_new = sigma_cr_shell_new
+        self.lenca = lenca
+        self.lenca_new = lenca_new
         self.n_cr_shell = n_cr_shell
+        self.n_cr_shell_new = n_cr_shell_new
+        self.sigma_b_rd_shell = sigma_b_rd_shell
+        self.sigma_b_rd_shell_new = sigma_b_rd_shell_new
         self.n_b_rd_shell = n_b_rd_shell
+        self.n_b_rd_shell_new = n_b_rd_shell_new
 
 
 class Part:
@@ -765,7 +781,8 @@ def sigma_x_rd(
         return
 
     # Critical meridinal stress, calculated on separate function
-    sigma_cr, category = sigma_x_rcr(thickness, radius, length)
+    category = shell_length_category(radius, thickness, length)
+    sigma_cr = sigma_x_rcr(thickness, radius, length)
 
     # Shell slenderness
     lmda = np.sqrt(f_y_k / sigma_cr)
@@ -773,7 +790,7 @@ def sigma_x_rd(
     alpha = 0.62 / (1 + 1.91 * (delta_w_k / thickness) ** 1.44)
     beta = 0.6
     eta = 1.
-    if category is 'long':
+    if category == 2:
         # For long cylinders, a formula is suggested for lambda, EC3-1-6 D1.2.2(4)
         # Currently, the general form is used. to be fixed.
         lmda_0 = 0.2
@@ -798,6 +815,113 @@ def sigma_x_rd(
     # Return value
     return sigma_rd
 
+def sigma_x_rd_new(
+        thickness,
+        radius,
+        length,
+        f_y_k,
+        fab_quality=None,
+        gamma_m1=None
+):
+    """
+    Meridional design buckling stress.
+
+    Calculates the meridional buckling stress for a cylindrical shell
+    according to EN1993-1-6 [1].
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Shell thickness
+    radius : float
+        [mm] Cylinder radius
+    length : float
+        [mm] Cylnder length
+    f_y_k : float
+        [MPa] Characteristic yield strength
+    fab_quality : str, optional
+        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
+        The three classes correspond to .006, .010 and .016 times the
+        width of a dimple on the shell.
+        Default = 'fcA', which implies excelent fabrication
+    gamma_m1 : int, optional
+        [_] Partial safety factor
+        Default = 1.1
+
+    Returns
+    -------
+    float
+        [MPa] Meridional buckling stress
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
+        Brussels: CEN, 2006._
+
+    """
+
+    # Default values
+    if fab_quality is None:
+        fab_quality = 'fcA'
+
+    if gamma_m1 is None:
+        # The default value 1.2 is as the lowest recomended on EC3-1-6 8.5.2(10) NOTE.
+        gamma_m1 = 1.2
+    else:
+        gamma_m1 = float(gamma_m1)
+
+    # Fabrication quality class acc. to table D2
+    if fab_quality is 'fcA':
+        q_factor = 40.
+    elif fab_quality is 'fcB':
+        q_factor = 25.
+    elif fab_quality is 'fcC':
+        q_factor = 16.
+    else:
+        print('Invalid fabrication class input. Choose between \'fcA\', \'fcB\' and \'fcC\' ')
+        return
+
+    # Critical meridinal stress, calculated on separate function
+    category = shell_length_category_new(radius, thickness, length)
+    sigma_cr = sigma_x_rcr_new(thickness, radius, length)
+
+    # Shell slenderness
+    lmda = np.sqrt(f_y_k / sigma_cr)
+    delta_w_k = (1. / q_factor) * np.sqrt(radius / thickness) * thickness
+    alpha_xG = 0.83
+    alpha_I = 0.06 + 0.93 / (1 + 2.7 * (delta_w_k / thickness)**0.85)
+    alpha = alpha_xG * alpha_I
+    
+    #alpha = 0.62 / (1 + 1.91 * (delta_w_k / thickness) ** 1.44)
+    beta = 1 - 0.95 / (1 + 1.12 * (delta_w_k / thickness))
+    eta = 5.8 / (1 + 4.6 * (delta_w_k / thickness)**0.87)
+    chi_xh = 1.15
+    lambda_p = np.sqrt(alpha / (1 - beta))
+    
+    if category == 2:
+        # For long cylinders, a formula is suggested for lambda under compression/bending , EC3-1-6 D1.2.2(4)
+        # Pure compression is assumed.
+        lmda_0 = 0.1 + (0 / 1.)
+        # lmda_0 = 0.2 + 0.1 * (sigma_e_M / sigma_e)
+    else:
+        lmda_0 = 0.2
+
+    lmda_p = np.sqrt(alpha / (1. - beta))
+
+    # Buckling reduction factor, chi
+    if lmda <= lmda_0:
+        chi = chi_xh - (lmda / lmda_0)*(chi_xh - 1)
+    elif lmda < lmda_p:
+        chi = 1. - beta * ((lmda - lmda_0) / (lmda_p - lmda_0)) ** eta
+    else:
+        chi = alpha / (lmda ** 2)
+
+    # Buckling stress
+    sigma_rk = chi * f_y_k
+    sigma_rd = sigma_rk / gamma_m1
+
+    # Return value
+    return sigma_rd
 
 def n_cr_shell(
         thickness,
@@ -836,17 +960,60 @@ def n_cr_shell(
     thickness, radius, length = float(thickness), float(radius), float(length)
 
     # Elastic critical load acc to EN3-1-6 Annex D
-    nn_cr_shell = 2 * np.pi * radius * thickness * sigma_x_rcr(thickness, radius, length)[0]
+    nn_cr_shell = 2 * np.pi * radius * thickness * sigma_x_rcr(thickness, radius, length)
 
     # Return value
     return nn_cr_shell
 
-
-def sigma_x_rcr(
+def n_cr_shell_new(
         thickness,
         radius,
         length
 ):
+    """
+    Critical compressive load for cylindrical shell.
+
+    Calculates the critical load for a cylindrical shell under pure
+    compression and assumes uniform stress distribution. Calculation
+    according to EN1993-1-6 [1], Annex D.
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Shell thickness
+    radius : float
+        [mm] Cylinder radius
+    length : float
+        [mm] Cylnder length
+
+    Returns
+    -------
+    float
+        [N] Critical load
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
+        Brussels: CEN, 2006.
+
+    """
+
+    # Convert inputs to floats
+    thickness, radius, length = float(thickness), float(radius), float(length)
+
+    # Elastic critical load acc to EN3-1-6 Annex D
+    nn_cr_shell = 2 * np.pi * radius * thickness * sigma_x_rcr_new(thickness, radius, length)
+
+    # Return value
+    return nn_cr_shell
+
+def sigma_x_rcr(
+        thickness,
+        radius,
+        length,
+        kapa_bc=None,
+        e_modulus=None
+):  
     """
     Critical meridional stress for cylindrical shell.
 
@@ -876,6 +1043,20 @@ def sigma_x_rcr(
         Brussels: CEN, 2006.
 
     """
+    
+    if kapa_bc is None:
+        kapa_bc = 1
+    
+    if e_modulus is None:
+        e_modulus = 210000.
+    
+    # flex buckling
+    r_o = radius + thickness / 2.
+    r_i = radius - thickness / 2.
+    moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
+    area = 2 * np.pi * radius * thickness
+    sigma_cr_e = n_cr_flex(length, moi, kapa_bc=kapa_bc, e_modulus=e_modulus) / area
+    
     # Convert inputs to floats
     thickness, radius, length = float(thickness), float(radius), float(length)
 
@@ -898,9 +1079,112 @@ def sigma_x_rcr(
     # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
     sigma_cr = 0.605 * 210000 * c_x * thickness / radius
 
+    if sigma_cr > sigma_cr_e:
+        sigma_cr = sigma_cr_e
+    
     # Return value
-    return sigma_cr, length_category
+    return sigma_cr
 
+
+def sigma_x_rcr_new(
+        thickness,
+        radius,
+        length,
+        kapa_bc=None,
+        e_modulus=None
+):  
+    """
+    Critical meridional stress for cylindrical shell.
+
+    Calculates the critical load for a cylindrical shell under pure
+    compression and assumes uniform stress distribution. Calculation
+    according to EN1993-1-6 [1], Annex D.
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Shell thickness
+    radius : float
+        [mm] Cylinder radius
+    length : float
+        [mm] Cylnder length
+
+    Returns
+    -------
+    list
+        List of 2 elements:
+        a) float, Critical load [N]
+        b) string, length category
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
+        Brussels: CEN, 2006.
+
+    """
+    
+    if kapa_bc is None:
+        kapa_bc = 1
+    
+    if e_modulus is None:
+        e_modulus = 210000.
+    
+    # Convert inputs to floats
+    thickness, radius, length = float(thickness), float(radius), float(length)
+
+    lenca = shell_length_category_new(radius, thickness, length)
+    omega = length / np.sqrt(radius * thickness)
+    
+    if lenca == 0:
+        c_x = 1.36 - (1.83 / omega) + (2.07 / omega ** 2)
+        # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
+        sigma_cr = 0.605 * 210000 * c_x * thickness / radius
+    elif lenca == 1:
+        c_x = 1.
+        # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
+        sigma_cr = 0.605 * 210000 * c_x * thickness / radius
+    elif lenca == 2:
+        # flex buckling
+        r_o = radius + thickness / 2.
+        r_i = radius - thickness / 2.
+        moi = np.pi * (r_o**4 - r_i**4) / 4.
+        area = 2 * np.pi * radius * thickness
+        print(moi, area)
+        sigma_cr = n_cr_flex(length, moi, kapa_bc=kapa_bc, e_modulus=e_modulus) / area
+    else:
+        print("Wrong length category.")
+
+    # Return value
+    return sigma_cr
+
+
+def shell_length_category(radius, thickness, length):
+    """Return the length gategory of a cylinder acc. to EC3-1-6 D.1.2.1"""
+    
+    omega = length / np.sqrt(radius * thickness)
+    if 1.7 <= omega <= 0.5 * (radius / thickness):
+        length_category = 1
+    elif omega < 1.7:
+        length_category = 0
+    else:
+        length_category = 2
+
+    return length_category
+
+
+def shell_length_category_new(radius, thickness, length):
+    """Return the length gategory of a cylinder acc. to EC3-1-6 D.1.2.1"""
+
+    omega = length / np.sqrt(radius * thickness)
+    if 1.7 <= omega <= 2.86 * (radius / thickness):
+        length_category = 1
+    elif omega < 1.7:
+        length_category = 0
+    else:
+        length_category = 2
+        
+    return length_category
+        
 # OVERALL BUCKLING
 def n_cr_flex(
         length,

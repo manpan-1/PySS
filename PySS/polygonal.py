@@ -362,7 +362,7 @@ class TheoreticalSpecimen(sd.Part):
         p_classification = cccc / (material.epsilon * thickness)
 
         # Critical stress acc. to plate theory.
-        sigma_cr_plate = sd.sigma_cr_plate(thickness, cccc)
+        sigma_cr_plate = sd.sigma_cr_plate(thickness, bbbb - 3*thickness)
 
         # Critical load acc. to plate theory.
         n_cr_plate = cs_props.area * sigma_cr_plate
@@ -372,26 +372,33 @@ class TheoreticalSpecimen(sd.Part):
 
         # Buckling load
         n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_y, "d")
+        
+        # Buckling stress (account for both flex and local)
+        sigma_b_rd_plate = n_b_rd / cs_props.area
 
         # Tube classification slenderness acc. to EC3-1-1
         t_classification = 2 * r_cyl / (material.epsilon ** 2 * thickness)
 
+        # Length categorisation acc. to EC3-1-1, new draft proposal
+        lenca = sd.shell_length_category(r_cyl, thickness, length)
+        lenca_new = sd.shell_length_category_new(r_cyl, thickness, length)
+        
         # Critical stress acc. to shell theory.
-        sigma_cr_shell = sd.sigma_x_rcr(thickness, r_cyl, length)[0]
-
+        sigma_cr_shell = sd.sigma_x_rcr(thickness, r_cyl, length)
+        sigma_cr_shell_new = sd.sigma_x_rcr_new(thickness, r_cyl, length)
+        
         # Critical load acc. to shell theory.
         n_cr_shell = sd.n_cr_shell(thickness, r_cyl, length)
+        n_cr_shell_new = sd.n_cr_shell_new(thickness, r_cyl, length)
 
+        # Compression stress of equivalent cylindrical shell (acc. to EC3-1-6)
+        sigma_b_rd_shell = sd.sigma_x_rd(thickness, r_cyl, length, f_y, fab_quality=fab_class)
+        sigma_b_rd_shell_new = sd.sigma_x_rd_new(thickness, r_cyl, length, f_y, fab_quality=fab_class)
+        
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
-        n_b_rd_shell = 2 * np.pi * r_cyl * thickness * sd.sigma_x_rd(
-            thickness,
-            r_cyl,
-            length,
-            f_y,
-            fab_quality=fab_class,
-            gamma_m1=1.
-        )
-
+        n_b_rd_shell = 2 * np.pi * r_cyl * thickness * sigma_b_rd_shell
+        n_b_rd_shell_new = 2 * np.pi * r_cyl * thickness * sigma_b_rd_shell_new
+        
         struct_props = sd.StructProps(
             t_classification=t_classification,
             p_classification=p_classification,
@@ -400,10 +407,18 @@ class TheoreticalSpecimen(sd.Part):
             n_cr_plate=n_cr_plate,
             sigma_cr_plate=sigma_cr_plate,
             n_pl_rd=n_pl_rd,
-            n_b_rd=n_b_rd,
+            sigma_b_rd_plate=sigma_b_rd_plate,
+            n_b_rd_plate=n_b_rd,
             sigma_cr_shell=sigma_cr_shell,
+            sigma_cr_shell_new=sigma_cr_shell_new,
+            lenca=lenca,
+            lenca_new=lenca_new,
             n_cr_shell=n_cr_shell,
-            n_b_rd_shell=n_b_rd_shell
+            n_cr_shell_new=n_cr_shell_new,
+            sigma_b_rd_shell=sigma_b_rd_shell,
+            sigma_b_rd_shell_new=sigma_b_rd_shell_new,
+            n_b_rd_shell=n_b_rd_shell,
+            n_b_rd_shell_new=n_b_rd_shell_new
         )
 
 
@@ -527,15 +542,39 @@ class TheoreticalSpecimen(sd.Part):
         thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
         
         # Radius of equivalent cylinder
-        r_circle  = area / (2 * np.pi * thickness)
+        r_cyl  = area / (2 * np.pi * thickness)
         
         return cls.from_geometry(
             n_sides,
-            r_circle,
+            r_cyl,
             thickness,
             length,
             f_y,
             fab_class
+        )
+
+    @classmethod
+    def from_radius_area_length(
+            cls,
+            n_sides,
+            r_cyl,
+            area,
+            length,
+            f_y,
+            fab_class,
+            a_b=3
+    ):
+
+        thickness = area / (2 * np.pi *r_cyl)
+
+        return cls.from_geometry(
+            n_sides,
+            r_cyl,
+            thickness,
+            length,
+            f_y,
+            fab_class,
+            a_b=a_b
         )
 
     @classmethod
@@ -640,7 +679,37 @@ class TheoreticalSpecimen(sd.Part):
             fab_class,
             a_b=a_b
         )
+    
+    @classmethod
+    def from_pclass_area_flexslend(
+            cls,
+            n_sides,
+            p_classification,
+            area,
+            lambda_flex,
+            f_y,
+            fab_class,
+            a_b=3.
+    ):
+        # Epsilon for the material
+        epsilon = np.sqrt(235. / f_y)
 
+        # Thickness
+        thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
+
+        # Radius of equivalent cylinder
+        r_cyl = area / (2 * np.pi * thickness)
+        
+        return cls.from_radius_thickness_flexslend(
+            n_sides,
+            r_cyl,
+            thickness,
+            lambda_flex,
+            f_y,
+            fab_class,
+            a_b=3
+        )
+    
 
 class RealSpecimen:
     """

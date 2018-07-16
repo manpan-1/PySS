@@ -9,7 +9,6 @@ def testfunc(*args, **kargs):
     return("")
 
 
-# Return a list with all the divisors of a numbers
 def divisors(n):
     """
     Divisors of an integer.
@@ -45,9 +44,9 @@ def get_queued(filename):
         with open(filename, "r") as f:
             for i, line in enumerate(f):
                 if sys.version[0] == "2":
-                    curr_line = line.split(",")
+                    curr_line = line.split(";")
                 else:
-                    curr_line = line.split(sep=",")
+                    curr_line = line.split(sep=";")
                 if curr_line[-1] == "QUEUED\n":
                     queue.append(i)
     return queue
@@ -59,11 +58,11 @@ def goto_next_queued(filename):
         lines = open(filename, "r").readlines()
         for i, line in enumerate(lines):
             if sys.version[0] == "2":
-                curr_line = line.split(",")
+                curr_line = line.split(";")
             else:
-                curr_line = line.split(sep=",")
+                curr_line = line.split(sep=";")
             if curr_line[-1] == "QUEUED\n":
-                lines[i] = ",".join(curr_line[:-1]) + ",RUNNING\n"
+                lines[i] = ";".join(curr_line[:-1]) + ";RUNNING\n"
                 with open(filename, "w") as f:
                     f.writelines(lines)
                 return i
@@ -75,10 +74,10 @@ def update_job_status(filename, job_nr, new_status):
     with flck.FileLock(filename):
         lines = open(filename, "r").readlines()
         if sys.version[0] == "2":
-            curr_line = lines[job_nr].split(",")
+            curr_line = lines[job_nr].split(";")
         else:
-            curr_line = lines[job_nr].split(sep=",")
-        lines[job_nr] = ",".join(curr_line[:-1]) + "," + new_status + "\n"
+            curr_line = lines[job_nr].split(sep=";")
+        lines[job_nr] = ";".join(curr_line[:-1]) + ";" + new_status + "\n"
         with open(filename, "w") as f:
             f.writelines(lines)
 
@@ -172,31 +171,31 @@ def run_factorial(
     leading_zeros = [len(str(max(x))) for x in param_args if isnumeric(max(x))]
     
     # Write the combinations in a file
-    batch_status_file = prj_name + "_batch_status.dat"
+    batch_status_file = prj_name + "_batch_status.csv"
     if not os.path.isfile(batch_status_file):
         with open(batch_status_file, "w") as f:
             for dimensions in combinations:
                 dim_string = ""
                 for idx, dimension in enumerate(dimensions):
                     if idx in numeric_dimensions:
-                        dim_string = dim_string + str(dimension).zfill(leading_zeros[idx]) + ","
+                        dim_string = dim_string + str(dimension).zfill(leading_zeros[idx]) + ";"
                     else:
-                        dim_string = dim_string + str(dimension) + ","
-                dim_string = dim_string[:-1] + ",QUEUED" + "\n"
+                        dim_string = dim_string + str(dimension) + ";"
+                dim_string = dim_string[:-1] + ";QUEUED" + "\n"
                 f.write(dim_string)
     
     # Initiate (if doesn't exist) a file for the results
-    results_file = prj_name + "_results.dat"
+    results_file = prj_name + "_results.csv"
     if not os.path.isfile(results_file):
         with open(results_file, "w") as f:
             for dimensions in combinations:
                 dim_string = ""
                 for idx, dimension in enumerate(dimensions):
                     if idx in numeric_dimensions:
-                        dim_string = dim_string + str(dimension).zfill(leading_zeros[idx]) + ","
+                        dim_string = dim_string + str(dimension).zfill(leading_zeros[idx]) + ";"
                     else:
-                        dim_string = dim_string + str(dimension) + ","
-                dim_string = dim_string[:-1] + ",Wait for it...!" + "\n"
+                        dim_string = dim_string + str(dimension) + ";"
+                dim_string = dim_string[:-1] + ";Wait for it...!" + "\n"
                 f.write(dim_string)
     # Initiate a list for the results
     prj_results = []
@@ -228,7 +227,9 @@ def run_factorial(
     
                     # Change working directory
                     os.chdir(job_id)
-    
+                 
+                 #copyfile("../abq_env_" + os.environ["SLURM_JOBID"] + ".env", "./abaqus_v6.env")
+            
             # Assemble current job's input arguments
             if func_args:
                 current_func_args = func_args
@@ -265,9 +266,9 @@ def run_factorial(
             if mk_subdirs is True:
                 os.chdir('../')
     
-            # with flck.FileLock('./' + prj_name + '_results.dat'):
-            #     with open('./' + prj_name + '_results.dat', 'a') as out_file:
-            #         out_file.write(job_id + "," + str(curr_job_nr) + "," + result + "\n")
+            # with flck.FileLock('./' + prj_name + '_results.csv'):
+            #     with open('./' + prj_name + '_results.csv', 'a') as out_file:
+            #         out_file.write(job_id + ";" + str(curr_job_nr) + ";" + result + "\n")
             
             # Add the result of the current job to the return list
             prj_results = prj_results + [result]
@@ -323,5 +324,5 @@ def subdir_crawler(
             func_return = "FAILED"
 
         os.chdir("..")
-        with open('./' + prj_name + '_info.dat', 'a') as out_file:
-            out_file.write(directory + "," + str(func_return) + "\n")
+        with open('./' + prj_name + '_info.csv', 'a') as out_file:
+            out_file.write(directory + ";" + str(func_return) + "\n")
