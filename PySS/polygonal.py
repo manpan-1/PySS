@@ -609,9 +609,8 @@ class TheoreticalSpecimen(sd.Part):
         # Moment of inertia
         b_o = bbbb + thickness * np.tan(theta)
         alfa = thickness * np.tan(theta) / b_o
-        moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3 + 1 / (np.tan(theta) ** 2)) * (
+        moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3. + 1 / (np.tan(theta) ** 2)) * (
                     1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
-
         # Effective cross secion area
         corner_area = 2 * np.pi * r_b * thickness
         a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
