@@ -207,6 +207,7 @@ class ParametricDB:
         # one subplot:  
         # 2 side by side: Bbox(x0=0.0, y0=0.0, x1=6.79, y1=2.57)
         # azim elev =  -160  30
+        # 3 subplots side by side
         # 4 subplots: Bbox(x0=0.0, y0=0.0, x1=6.43, y1=5.14)
         #azim elev -160 30
         plt.rc('text', usetex=True)

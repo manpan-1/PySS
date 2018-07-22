@@ -186,22 +186,28 @@ class PolygonalColumn:
         # Assign the constructed specimen to the object
         self.real_specimen = specimen
 
-    def add_experiment(self, fh):
-        """
-        Add and experimental data.
-
-        Adds a :obj:`TestData` object from a file to the polygonal column.
-
-        Parameters
-        ----------
-        fh : str
-            Path to the ascii file containing the experimental data.
-
-        """
-        self.experiment_data = TestData.from_file(fh)
-        self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
-        self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
-        self.experiment_data.process_data()
+    def add_experiment(self, fh=None, max_load=None):
+        if fh:
+            """
+            Add and experimental data.
+    
+            Adds a :obj:`TestData` object from a file to the polygonal column.
+    
+            Parameters
+            ----------
+            fh : str
+                Path to the ascii file containing the experimental data.
+    
+            """
+            self.experiment_data = TestData.from_file(fh)
+            self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
+            self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
+            self.experiment_data.process_data()
+        else:
+            self.experiment_data = TestData()
+        
+        if max_load:
+            self.max_load = max_load
 
     def add_numerical(self, filename):
         """Add data from FEM"""
@@ -396,8 +402,8 @@ class TheoreticalSpecimen(sd.Part):
         sigma_b_rd_shell_new = sd.sigma_x_rd_new(thickness, r_cyl, length, f_y, fab_quality=fab_class)
         
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
-        n_b_rd_shell = 2 * np.pi * r_cyl * thickness * sigma_b_rd_shell
-        n_b_rd_shell_new = 2 * np.pi * r_cyl * thickness * sigma_b_rd_shell_new
+        n_b_rd_shell = cs_props.area * sigma_b_rd_shell
+        n_b_rd_shell_new = cs_props.area * sigma_b_rd_shell_new
         
         struct_props = sd.StructProps(
             t_classification=t_classification,
@@ -1031,9 +1037,10 @@ class TestData(lt.Experiment):
     Laboratory test of polygonal specimen.
 
     """
-    def __init__(self, name=None, channels=None, specimen_length=None, cs_area=None):
+    def __init__(self, name=None, channels=None, specimen_length=None, cs_area=None, max_load=None):
         self.specimen_length = specimen_length
         self.cs_area = cs_area
+        self.max_load = max_load
 
         super().__init__(name=name, channels=channels)
         
@@ -1505,7 +1512,8 @@ def main(
         print('Adding experimental data from the compression tests.')
         for i in range(9):
             print('Adding experimental data to specimen number {}'.format(i + 1))
-            cases[i].add_experiment(directory + 'sp{}/experiment/sp{}.asc'.format(i + 1, i + 1))
+            cases[i].add_experiment(fh=directory + 'sp{}/experiment/sp{}.asc'.format(i + 1, i + 1))
+            cases[i].experiment_data.max_load = -cases[i].experiment_data.channels["Load"]["data"].min() * 1000
 
         # Correction of stroke tare value on some measurements.
         cases[1].experiment_data.offset_stroke()
