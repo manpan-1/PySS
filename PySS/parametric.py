@@ -5,7 +5,7 @@ import os
 import PySS.FileLock as flck
 
 
-def testfunc(*args, **kargs):
+def dummyfunc(*args, **kargs):
     return("")
 
 
@@ -48,7 +48,7 @@ def get_queued(filename):
                 else:
                     curr_line = line.split(sep=";")
                 if curr_line[-1] == "QUEUED\n":
-                    queue.append(i)
+                    queue.append(i - 2)
     return queue
 
 
@@ -65,19 +65,20 @@ def goto_next_queued(filename):
                 lines[i] = ";".join(curr_line[:-1]) + ";RUNNING\n"
                 with open(filename, "w") as f:
                     f.writelines(lines)
-                return i
+                return i - 2
         return False
 
 
 def update_job_status(filename, job_nr, new_status):
     """Change status of a job number on a batch status file"""
+    line_nr = job_nr + 2
     with flck.FileLock(filename):
         lines = open(filename, "r").readlines()
         if sys.version[0] == "2":
-            curr_line = lines[job_nr].split(";")
+            curr_line = lines[line_nr].split(";")
         else:
-            curr_line = lines[job_nr].split(sep=";")
-        lines[job_nr] = ";".join(curr_line[:-1]) + ";" + new_status + "\n"
+            curr_line = lines[line_nr].split(sep=";")
+        lines[line_nr] = ";".join(curr_line[:-1]) + ";" + new_status + "\n"
         with open(filename, "w") as f:
             f.writelines(lines)
 
@@ -166,6 +167,8 @@ def run_factorial(
     all_params = param_args + param_kargs
     combinations = list(product(*all_params))
 
+    # Check which of the given parametric arguments are numeric and find our how many leading zeros are needed based on
+    # the largest value.
     isnumeric = lambda x: isinstance(x, int) or isinstance(x, float)
     numeric_dimensions = [param_args.index(x) for x in param_args if isnumeric(max(x))]
     leading_zeros = [len(str(max(x))) for x in param_args if isnumeric(max(x))]
@@ -174,6 +177,8 @@ def run_factorial(
     batch_status_file = prj_name + "_batch_status.csv"
     if not os.path.isfile(batch_status_file):
         with open(batch_status_file, "w") as f:
+            f.write(str(len(param_args)+len(param_kargs)) + " dimensions\n")
+            f.write("job_parameters;status\n")
             for dimensions in combinations:
                 dim_string = ""
                 for idx, dimension in enumerate(dimensions):
@@ -181,13 +186,16 @@ def run_factorial(
                         dim_string = dim_string + str(dimension).zfill(leading_zeros[idx]) + ";"
                     else:
                         dim_string = dim_string + str(dimension) + ";"
-                dim_string = dim_string[:-1] + ";QUEUED" + "\n"
+                dim_string = dim_string + "QUEUED" + "\n"
                 f.write(dim_string)
     
     # Initiate (if doesn't exist) a file for the results
     results_file = prj_name + "_results.csv"
     if not os.path.isfile(results_file):
         with open(results_file, "w") as f:
+            f.write(str(len(param_args)+len(param_kargs)) + " dimensions\n")
+            f.write("(For this database to be loaded with the PySS.fem.ParametricDB(), replace this line with the "
+                    "titles of the columns in a semicolon separated list. TeX expressions can be used.)\n")
             for dimensions in combinations:
                 dim_string = ""
                 for idx, dimension in enumerate(dimensions):
@@ -195,7 +203,7 @@ def run_factorial(
                         dim_string = dim_string + str(dimension).zfill(leading_zeros[idx]) + ";"
                     else:
                         dim_string = dim_string + str(dimension) + ";"
-                dim_string = dim_string[:-1] + ";Wait for it...!" + "\n"
+                dim_string = dim_string + "Wait for it...!" + "\n"
                 f.write(dim_string)
     # Initiate a list for the results
     prj_results = []
@@ -265,11 +273,7 @@ def run_factorial(
             # Return to parent directory
             if mk_subdirs is True:
                 os.chdir('../')
-    
-            # with flck.FileLock('./' + prj_name + '_results.csv'):
-            #     with open('./' + prj_name + '_results.csv', 'a') as out_file:
-            #         out_file.write(job_id + ";" + str(curr_job_nr) + ";" + result + "\n")
-            
+
             # Add the result of the current job to the return list
             prj_results = prj_results + [result]
     

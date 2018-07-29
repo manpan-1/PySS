@@ -334,6 +334,8 @@ class RoundedEdge(Scan3D):
         self.circles = None
         self.edge2ref_dist = None
         self.ref_line = None
+        self.fft_results = None
+        self.u_max = None
 
         super().__init__(points_wcsys=points_wcsys)
 
@@ -522,43 +524,47 @@ class RoundedEdge(Scan3D):
         Yblack = np.fft.fft(black * s)
 
         # Plot all
-        plt.figure(figsize=(7, 3))
+        # plt.figure(figsize=(7, 3))
+        #
+        # plt.subplot(241)
+        # plt.plot(t, s)
+        # plt.title('No windowing')
+        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
+        #
+        # plt.subplot(242)
+        # plt.plot(t, s * hann)
+        # plt.title('Hanning')
+        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
+        #
+        # plt.subplot(243)
+        # plt.plot(t, s * hamm)
+        # plt.title('Hamming')
+        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
+        #
+        # plt.subplot(244)
+        # plt.plot(t, s * black)
+        # plt.title('Blackman')
+        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
+        #
+        # plt.subplot(245)
+        # plt.bar(2 * X[:20], 2.0 * np.abs(Y[:20]) / N)
+        # plt.xlabel('Length to buckle width ratio, l/w')
+        #
+        # plt.subplot(246)
+        # plt.bar(2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
+        # plt.xlabel('Length to buckle width ratio, l/w')
+        #
+        # plt.subplot(247)
+        # plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
+        # plt.xlabel('Length to buckle width ratio, l/w')
+        #
+        # plt.subplot(248)
+        # plt.bar(2 * X[:20], 2.0 * np.abs(Yblack[:20]) / N)
+        # plt.xlabel('Length to buckle width ratio, l/w')
 
-        plt.subplot(241)
-        plt.plot(t, s)
-        plt.title('No windowing')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+        self.fft_results = (2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
 
-        plt.subplot(242)
-        plt.plot(t, s * hann)
-        plt.title('Hanning')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
-
-        plt.subplot(243)
-        plt.plot(t, s * hamm)
-        plt.title('Hamming')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
-
-        plt.subplot(244)
-        plt.plot(t, s * black)
-        plt.title('Blackman')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
-
-        plt.subplot(245)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Y[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        plt.subplot(246)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        plt.subplot(247)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        plt.subplot(248)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
+        self.u_max = self.fft_results[1][1:].max() / (edge_length / self.fft_results[0][1 + self.fft_results[1][1:].argmax()])
 
 
 def main():

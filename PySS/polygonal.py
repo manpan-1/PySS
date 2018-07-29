@@ -183,6 +183,9 @@ class PolygonalColumn:
         # Extract the maximum imperfection displacement from each facet and edge.
         specimen.gather_max_imperfections()
 
+        # Perform fft on edges
+        #specimen.fft_all_edges()
+
         # Assign the constructed specimen to the object
         self.real_specimen = specimen
 
@@ -737,6 +740,7 @@ class RealSpecimen:
         self.thickness = thickness
         self.max_edge_imp = None
         self.max_face_imp = None
+        self.u_edges = None
 
     def centre_line_from_pickle(self, fh):
         """
@@ -948,6 +952,14 @@ class RealSpecimen:
             print('Calculating initial imperfection displacements, facet:    {}'.format(i + 1))
             x.calc_face2ref_dist()
 
+    # def fft_all_edges(self):
+    #     edges_u_max = []
+    #     for i in self.edges:
+    #         i.fft()
+    #         edges_u_max.append(i.u_max)
+    #
+    #     self.u_edges = edges_u_max
+
     def plot_all(self):
         """
         Plot all data.
@@ -979,7 +991,7 @@ class RealSpecimen:
             self.max_face_imp.append(max(np.abs(x.face2ref_dist)))
         for x in self.edges:
             try:
-                self.max_edge_imp.append(max(np.abs(x.edge2ref_dist)))
+                self.max_edge_imp.append(max(np.abs(x.edge2ref_dist[1])))
             except:
                 self.max_edge_imp.append(NotImplemented)
 
