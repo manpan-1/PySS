@@ -8,10 +8,16 @@ Welcome to PySS's documentation!
    readme
    installation
    usage
-   code
    history
    contributing
    authors
+   polygonal
+   parametric
+   lab_tests
+   scan_3D
+   steel_design
+   analytic_geometry
+
 
 Indices and tables
 ==================

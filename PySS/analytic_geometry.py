@@ -513,16 +513,14 @@ class Line2D:
     -- From 2 points,
     -- from point and parallel vector,
     -- from the expression coefficients, given as a vector [a, b, c]
-    To create a Line2D object, use one of the four 'from_...' class methods.
+    To create a Line2D object, use one of the four `from_...` class methods.
 
     Parameters
     ----------
     point : ndarray [x0, y0], optional
         Point belonging to the line. Default is `None`
-
     parallel : ndarray [v_x, v_y], optional
         2D vector parallel to the line. Default is `None`
-
     line_coeff : ndarray [a, b, c], optional
         Coefficients of the implicit form of the line, `a*x + b*y + c = 0`.
 

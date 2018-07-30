@@ -20,6 +20,12 @@ class PolygonalColumn:
     """
     Polygonal column.
 
+    General class for a polygonal column, including all theoretical, experimental, numerical and 3D scanned data.
+
+    More in detail, "theoretical_specimen" includes geometrical and structural properties and calculations according to
+    Eurocodes. The "real_specimen" data holds the 3D scanned object and post processing. Similarly, "experiment_data"
+    and "numerical_data" contain the history and processing of laboratory experiments and FEM respectively.
+
     """
 
     def __init__(self,
@@ -113,6 +119,7 @@ class PolygonalColumn:
 
         - files with points of sides: ``side_XX.pkl``.
         - files with points od edges: ``edge_XX.pkl``
+
         where `XX` is an ascending number starting from 01.
 
         Parameters
@@ -190,18 +197,19 @@ class PolygonalColumn:
         self.real_specimen = specimen
 
     def add_experiment(self, fh=None, max_load=None):
+        """
+        Add and experimental data.
+
+        Adds a :obj:`TestData` object from a file to the polygonal column.
+
+        Parameters
+        ----------
+        fh : str
+            Path to the ascii file containing the experimental data.
+
+        """
         if fh:
-            """
-            Add and experimental data.
-    
-            Adds a :obj:`TestData` object from a file to the polygonal column.
-    
-            Parameters
-            ----------
-            fh : str
-                Path to the ascii file containing the experimental data.
-    
-            """
+
             self.experiment_data = TestData.from_file(fh)
             self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
             self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
@@ -213,13 +221,24 @@ class PolygonalColumn:
             self.max_load = max_load
 
     def add_numerical(self, filename):
-        """Add data from FEM"""
+        """
+        Add and FEM data.
+
+        Adds a :obj:`fem.FEModel` object from a pickle file containing a history output of a FEM model.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the pickle file.
+
+        """
         self.numerical_data = fem.FEModel.from_hist_pkl(filename)
 
-    def report_real_specimen(self):
-        """Print a report for the processed scanned data of the real specimen."""
-        print('Report for {}'.format(self.name))
-        self.real_specimen.print_report()
+    # TODO: Fix the report function
+    # def report_real_specimen(self):
+    #     """Print a report for the processed scanned data of the real specimen."""
+    #     print('Report for {}'.format(self.name))
+    #     self.real_specimen.print_report()
 
 
 class TheoreticalSpecimen(sd.Part):
@@ -258,6 +277,10 @@ class TheoreticalSpecimen(sd.Part):
 
         The constructor calculates properties of the polygonal column object (cross-section props,
         resistance, geometric props etc). The calculated data is then used to construct an object.
+
+        This is the basic alternative constructor, several other alternative constructors are defined for different
+        cases of imput data. All of the following alternative constructors are calling this one to create the object
+        after having performed the necessary geometrical pre-calculations.
 
         Parameters
         ----------
@@ -445,10 +468,9 @@ class TheoreticalSpecimen(sd.Part):
             a_b=3.
     ):
         """
-        Create theoretical polygonal column object for given plate slenderness and thickness.
+        Create theoretical polygonal column object for given plate slenderness, thickness and length.
 
-        The constructor calculates properties of the polygonal column object (cross-section props,
-        resistance, geometric props etc) which are then used to construct an object.
+        Uses the :func:`~PySS.polygonal.from_geometry`.
 
         Parameters
         ----------
@@ -465,6 +487,8 @@ class TheoreticalSpecimen(sd.Part):
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
 
         """
 
@@ -496,17 +520,16 @@ class TheoreticalSpecimen(sd.Part):
             a_b=3.
     ):
         """
-        Create theoretical polygonal column object for given plate slenderness and radius.
+        Create theoretical polygonal column object for given equivalent cylinder radius, plate slenderness and length.
 
-        The constructor calculates properties of the polygonal column object (cross-section props,
-        resistance, geometric props etc). The calculated data is then used to construct an object.
+        Uses the :func:`~PySS.polygonal.from_geometry`.
 
         Parameters
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
         r_cyl : float
-            Radius of the circle circumscribed to the polygon.
+            Radius of the equivalent cylinder.
         p_classification : float
             Facet slenderness, c/(ε*t).
         length : float
@@ -516,8 +539,11 @@ class TheoreticalSpecimen(sd.Part):
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
 
         """
+
         # Epsilon for the material
         epsilon = np.sqrt(235. / f_y)
 
@@ -544,6 +570,32 @@ class TheoreticalSpecimen(sd.Part):
             fab_class,
             a_b=3
     ):
+        """
+        Create theoretical polygonal column object for given equivalent cylinder radius, plate slenderness and
+        length.
+
+        Uses the :func:`~PySS.polygonal.from_geometry`.
+
+        Parameters
+        ----------
+        n_sides : int
+            Number of sides of the polygon cross-section.
+        p_classification : float
+            Facet slenderness, c/(ε*t).
+        area : float
+            Cross-sectional area.
+        length : float
+            Length of the column.
+        f_y : float
+            Yield stress of the material.
+        fab_class : {'fcA', 'fcB', 'fcC'}
+            Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
+            the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
+
+        """
+
         # Epsilon for the material
         epsilon = np.sqrt(235. / f_y)
         
@@ -573,6 +625,30 @@ class TheoreticalSpecimen(sd.Part):
             fab_class,
             a_b=3
     ):
+        """
+        Create theoretical polygonal column object for given equivalent cylinder radius, area and length.
+
+        Uses the :func:`~PySS.polygonal.from_geometry`.
+
+        Parameters
+        ----------
+        n_sides : int
+            Number of sides of the polygon cross-section.
+        r_cyl : float
+            Radius of the equivalent cylinder.
+        area : float
+            Cross-sectional area.
+        length : float
+            Length of the column.
+        f_y : float
+            Yield stress of the material.
+        fab_class : {'fcA', 'fcB', 'fcC'}
+            Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
+            the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
+
+        """
 
         thickness = area / (2 * np.pi *r_cyl)
 
@@ -597,6 +673,32 @@ class TheoreticalSpecimen(sd.Part):
             fab_class,
             a_b=3.
     ):
+        """
+        Create theoretical polygonal column object for given equivalent cylinder radius, thickness and flexural
+        slenderness.
+
+        Uses the :func:`~PySS.polygonal.from_geometry`.
+
+        Parameters
+        ----------
+        n_sides : int
+            Number of sides of the polygon cross-section.
+        r_cyl : float
+            Radius of the equivalent cylinder.
+        thickness : float
+            Thickness of the cross-section.
+        lambda_flex : float
+            Flexural slenderness.
+        f_y : float
+            Yield stress of the material.
+        fab_class : {'fcA', 'fcB', 'fcC'}
+            Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
+            the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
+
+        """
+
         # Bending radius
         r_b = a_b * thickness
 
@@ -649,26 +751,28 @@ class TheoreticalSpecimen(sd.Part):
             a_b=3.
     ):
         """
-        Create theoretical polygonal column object for given plate slenderness, radius and flexural slenderness.
+        Create theoretical polygonal column object for given equivalent cylinder radius, plate classification and
+        flexural slenderness.
 
-        The constructor calculates properties of the polygonal column object (cross-section props,
-        resistance, geometric props etc). The calculated data is then used to construct an object.
+        Uses the :func:`~PySS.polygonal.from_geometry`.
 
         Parameters
         ----------
         n_sides : int
             Number of sides of the polygon cross-section.
         r_cyl : float
-            Radius of the circle circumscribed to the polygon.
+            Radius of the equivalent cylinder.
         p_classification : float
             Facet slenderness, c/(ε*t).
-        length : float
-            Length of the column.
+        lambda_flex : float
+            Flexural slenderness.
         f_y : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
 
         """
 
@@ -699,6 +803,30 @@ class TheoreticalSpecimen(sd.Part):
             fab_class,
             a_b=3.
     ):
+        """
+        Create theoretical polygonal column object for given plate classification, area and flexural slenderness.
+
+        Uses the :func:`~PySS.polygonal.from_geometry`.
+
+        Parameters
+        ----------
+        n_sides : int
+            Number of sides of the polygon cross-section.
+        p_classification : float
+            Facet slenderness, c/(ε*t).
+        area : float
+            Cross-sectional area.
+        lambda_flex : float
+            Flexural slenderness.
+        f_y : float
+            Yield stress of the material.
+        fab_class : {'fcA', 'fcB', 'fcC'}
+            Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
+            the cylinder of equal thickness-perimeter.
+        a_b : float
+            Thickness to bending radius ratio.
+
+        """
         # Epsilon for the material
         epsilon = np.sqrt(235. / f_y)
 
@@ -1080,37 +1208,37 @@ class TestData(lt.Experiment):
         self.calc_avg_stress()
 
     #TODO: fix the add_Eccentricity method
-    def add_eccentricity(self, axis, column, moi, min_dist, thickness, young):
-        """
-        Calculate eccentricity.
-
-        Adds a column in the data dictionary for the eccentricity of the load application on a given axis based on
-        two opposite strain measurements.
-
-        Parameters
-        ----------
-        axis :
-        column :
-        moi :
-        mon_dist :
-        thickness :
-        young :
-
-        """
-
-        self.channels['e_' + axis] = {}
-        self.channels['e_' + axis]["data"] = []
-        self.channels['e_' + axis]["units"] = "mm"
-        for load, strain1, strain2 in zip(self.channels['Load']["data"],
-                                          self.channels[column[0]]["data"],
-                                          self.channels[column[1]]["data"]):
-            self.channels['e_' + axis]["data"].append(self.eccentricity_from_strain(
-                load * 1000,
-                [strain1 * 1e-6, strain2 * 1e-6],
-                moi,
-                min_dist + thickness / 2,
-                young)
-            )
+    # def add_eccentricity(self, axis, column, moi, min_dist, thickness, young):
+    #     """
+    #     Calculate eccentricity.
+    #
+    #     Adds a column in the data dictionary for the eccentricity of the load application on a given axis based on
+    #     two opposite strain measurements.
+    #
+    #     Parameters
+    #     ----------
+    #     axis :
+    #     column :
+    #     moi :
+    #     mon_dist :
+    #     thickness :
+    #     young :
+    #
+    #     """
+    #
+    #     self.channels['e_' + axis] = {}
+    #     self.channels['e_' + axis]["data"] = []
+    #     self.channels['e_' + axis]["units"] = "mm"
+    #     for load, strain1, strain2 in zip(self.channels['Load']["data"],
+    #                                       self.channels[column[0]]["data"],
+    #                                       self.channels[column[1]]["data"]):
+    #         self.channels['e_' + axis]["data"].append(self.eccentricity_from_strain(
+    #             load * 1000,
+    #             [strain1 * 1e-6, strain2 * 1e-6],
+    #             moi,
+    #             min_dist + thickness / 2,
+    #             young)
+    #         )
 
     def offset_stroke(self, offset=None):
         """
@@ -1192,10 +1320,6 @@ class TestData(lt.Experiment):
             self.plot2d("{:02d}C".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
             self.plot2d("{:02d}F".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
             return ax
-        
-    def plot_all_strain_gage_pairs(self):
-        for i in self.facets_with_gauges:
-            self.plot_strain_gage_pair(i)
 
     def calc_avg_stress(self):
         """Calculate the average stress from the measured reaction force and the cross-section area."""
@@ -1301,28 +1425,29 @@ class TestData(lt.Experiment):
             ax.legend(handles[::-1], labels[::-1])
             return ax
 
-    @staticmethod
-    def eccentricity_from_strain(load, strain, moi, dist, young=None):
-        """
-        Load eccentricity based on strain pairs.
-
-        Calculate the eccentricity of an axial load to the neutral axis of a specimen for which pairs of strains are
-        monitored with strain gauges. The eccentricity is calculated on one axis and requires the moment of inertia
-        around it and a pair of strains on tow positions symmetric to the neutral axis. Elastic behaviour is assumed.
-
-        """
-
-        # Default values.
-        if young is None:
-            young = 210000.
-        else:
-            young = float(young)
-
-        # Eccentricity.
-        ecc = (strain[0] - strain[1]) * young * moi / (2 * load * dist)
-
-        # Return
-        return ecc
+    #TODO: fix the eccentricity method.
+    # @staticmethod
+    # def eccentricity_from_strain(load, strain, moi, dist, young=None):
+    #     """
+    #     Load eccentricity based on strain pairs.
+    #
+    #     Calculate the eccentricity of an axial load to the neutral axis of a specimen for which pairs of strains are
+    #     monitored with strain gauges. The eccentricity is calculated on one axis and requires the moment of inertia
+    #     around it and a pair of strains on tow positions symmetric to the neutral axis. Elastic behaviour is assumed.
+    #
+    #     """
+    #
+    #     # Default values.
+    #     if young is None:
+    #         young = 210000.
+    #     else:
+    #         young = float(young)
+    #
+    #     # Eccentricity.
+    #     ecc = (strain[0] - strain[1]) * young * moi / (2 * load * dist)
+    #
+    #     # Return
+    #     return ecc
 
 
 def semi_closed_polygon(n_sides, radius, t, tg, rbend, nbend, l_lip):
@@ -1556,10 +1681,11 @@ def main(
 
         # Displacement-load
 
-    if print_reports:
-        for i in cases:
-            print('')
-            i.report_real_specimen()
+    # TODO: fix the reporting functions
+    # if print_reports:
+    #     for i in cases:
+    #         print('')
+    #         i.report_real_specimen()
 
     if export:
         print('Exporting the generated object with all the processed specimens to pickle.')

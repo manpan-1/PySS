@@ -265,6 +265,7 @@ class CouponTest(Experiment):
     def calc_plastic_strain(self):
         """
         Calculate the plastic strain.
+
         """
         self.channels["StrainPl"] = {"data": self.channels["StrainEng"]["data"] - self.channels["StressEng"]["data"] / self.young,
                                      "units": "mm/mm"}

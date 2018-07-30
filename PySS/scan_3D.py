@@ -54,6 +54,7 @@ class FlatFace(Scan3D):
 
         Add :obj:`ag.Points3D` grid on the local coordinate system of the reference plane.
         The scanned points are projected on the reference plane and the projections are rotated to lie on xy-plane.
+
         """
         # # Check if face2ref exists (The check is performed with an if in the beginning of the method to avoid unnecessary
         # #  calculations)
@@ -112,8 +113,9 @@ class FlatFace(Scan3D):
         Fit a plane on the scanned data (WCS).
 
         The Plane3D object is assigned in the `self.ref_plane`. The fitted plane is returned using the
-        analytic_geometry.lstsq_planar_fit with the optional argument lay_on_xy=True. See
-        analytic_geometry.lstsq_planar_fit documentation.
+        :func:`~PySS.analytic_geometry.lstsq_planar_fit` with the optional argument 'lay_on_xy=True'. See
+        :func:`~PySS.analytic_geometry.lstsq_planar_fit` documentation.
+
         """
         self.ref_plane = ag.Plane3D.from_fitting(self.points_wcsys, lay_on_xy=True)
 
@@ -121,11 +123,15 @@ class FlatFace(Scan3D):
         """
         Offset the plane and (optionally) the scanned data points (WCS).
 
-        Useful for translating translating the scanned surface to the mid line.
+        Used for translating translating the scanned surface to the mid line.
 
-        :param offset:
-        :param offset_points:
-        :return:
+        Parameters
+        ----------
+        offset : float
+            Offset distance.
+        offset_points : bool
+            Flag for offsetting the real ponts as well.
+
         """
         self.ref_plane.offset_plane(offset)
 
@@ -150,10 +156,10 @@ class FlatFace(Scan3D):
         ----------
         fig : Object of class matplotlib.figure.Figure, optional
             The figure window to be used for plotting. By default, a new window is created.
+        reduced : float
+            Value between 0 and 1 describing the percentage of all the points to randomly picked and plotted.
 
         """
-
-        #TODO: continue
         # Average and range of the points.
         self.points_wcsys.calc_csl()
         plot_dim = max(self.points_wcsys.size[0], self.points_wcsys.size[1], self.points_wcsys.size[2])
@@ -233,6 +239,7 @@ class FlatFace(Scan3D):
     def regulate_imperf(self):
         """
         Re-sample the list of imperfection displacements on a regular 2D grid.
+
         """
         # Re-mesh flat face local coordinates on a regular grid
         points = np.column_stack([self.points_lcsys.get_xs(), self.points_lcsys.get_ys()])
@@ -262,6 +269,7 @@ class FlatFace(Scan3D):
     def fft(self):
         """
         Perform 3D fourier
+
         """
         # Initialise an empty array
         field = self.regular_grid[2]
@@ -357,6 +365,7 @@ class RoundedEdge(Scan3D):
             print("ref_line must be Line3D")
             return NotImplemented
 
+    #TODO: continue docstring (parameters)
     def fit_circles(self, axis=None, offset=None):
         """
         Fit a series of circles along the length of the rounded edge.
@@ -364,8 +373,13 @@ class RoundedEdge(Scan3D):
         The scanned data are first grouped together based on their z-coordinate and then a horizontal circle is fitted
         for each group of points.
 
-        Note
-        ----
+        Parameters
+        ----------
+        axis :
+        offset :
+
+        Notes
+        -----
         The resulted circle from fitting at each height, z, are checked so that the centres are closer to the origin
         than the points that generated it, essentially checking if the curvature of the points is concave towards the
         origin. If not, the circle is ignored and a `None` placeholder is appended to the list of circles.
@@ -447,7 +461,10 @@ class RoundedEdge(Scan3D):
         self.ref_line = ag.Line3D.from_fitting(self.edge_points)
 
     def calc_edge2ref_dist(self):
-        """Calculate distances of edge points to the reference line."""
+        """
+        Calculate distances of edge points to the reference line.
+
+        """
         if self.ref_line and self.ref_line is not NotImplemented:
 
             # Get the relative position of the first point on the reference edge line. This will be used as origin for
@@ -491,6 +508,7 @@ class RoundedEdge(Scan3D):
     def fft(self):
         """
         Perform fft on the edge points (imperfections).
+
         """
         # Create a linear space for equally distributed samples
         n_of_samples = len(self.edge2ref_dist[0])
