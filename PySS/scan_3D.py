@@ -224,7 +224,7 @@ class FlatFace(Scan3D):
         else:
             print('No reference plane to plot. Use `fit_plane` to create one.')
 
-        # Regulate figure.
+        # Regulate figure bbox.
         plt.xlabel('x')
         plt.ylabel('y')
         ax.set_zlabel('z')
@@ -467,26 +467,26 @@ class RoundedEdge(Scan3D):
         """
         if self.ref_line and self.ref_line is not NotImplemented:
 
-            # Get the relative position of the first point on the reference edge line. This will be used as origin for
+            # Get the relative position of the first point on the reference edge line. This will be used as origin
             # for the projected edge points on the reference line.
             origin = np.dot(self.ref_line.parallel, self.edge_points[0].coords)
 
             position = []
             distance = []
 
-            for x in self.edge_points:
+            for edge_point in self.edge_points:
                 # Find the distances from the the real edge and the ref line points to the (0, 0). Based on which one is
                 # further away from the origin, the sign of the distance is assigned
-                edge = np.linalg.norm(np.r_[0, 0] - x.coords[:2])
-                refp = np.linalg.norm(np.r_[0, 0] - self.ref_line.xy_for_z(x.coords[2])[:2])
-                s = np.sign(edge - refp)
+                edge = np.linalg.norm(np.r_[0, 0] - edge_point.coords[:2])
+                refp = np.linalg.norm(np.r_[0, 0] - self.ref_line.xy_for_z(edge_point.coords[2])[:2])
+                s = np.sign(refp - edge)
 
                 # calculate the distance of the edge point to the ref line and give this distance the sign calculated.
-                distance.append(s * x.distance_to_line(self.ref_line))
+                distance.append(s * edge_point.distance_to_line(self.ref_line))
 
                 # calculate the position of the projected real edge point on the reference line, using as origin the
                 # projection of the first point (see above).
-                position.append(abs(origin - np.dot(self.ref_line.parallel, x.coords)))
+                position.append(abs(origin - np.dot(self.ref_line.parallel, edge_point.coords)))
 
             # assign positions and distances on the parent object
             self.edge2ref_dist = [position, distance]
@@ -542,43 +542,43 @@ class RoundedEdge(Scan3D):
         Yblack = np.fft.fft(black * s)
 
         # Plot all
-        # plt.figure(figsize=(7, 3))
-        #
-        # plt.subplot(241)
-        # plt.plot(t, s)
-        # plt.title('No windowing')
-        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
-        #
-        # plt.subplot(242)
-        # plt.plot(t, s * hann)
-        # plt.title('Hanning')
-        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
-        #
-        # plt.subplot(243)
-        # plt.plot(t, s * hamm)
-        # plt.title('Hamming')
-        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
-        #
-        # plt.subplot(244)
-        # plt.plot(t, s * black)
-        # plt.title('Blackman')
-        # plt.ylim(np.min(s) * 3, np.max(s) * 3)
-        #
-        # plt.subplot(245)
-        # plt.bar(2 * X[:20], 2.0 * np.abs(Y[:20]) / N)
-        # plt.xlabel('Length to buckle width ratio, l/w')
-        #
-        # plt.subplot(246)
-        # plt.bar(2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
-        # plt.xlabel('Length to buckle width ratio, l/w')
-        #
-        # plt.subplot(247)
-        # plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
-        # plt.xlabel('Length to buckle width ratio, l/w')
-        #
-        # plt.subplot(248)
-        # plt.bar(2 * X[:20], 2.0 * np.abs(Yblack[:20]) / N)
-        # plt.xlabel('Length to buckle width ratio, l/w')
+        plt.figure(figsize=(7, 3))
+
+        plt.subplot(241)
+        plt.plot(t, s)
+        plt.title('No windowing')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(242)
+        plt.plot(t, s * hann)
+        plt.title('Hanning')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(243)
+        plt.plot(t, s * hamm)
+        plt.title('Hamming')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(244)
+        plt.plot(t, s * black)
+        plt.title('Blackman')
+        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+
+        plt.subplot(245)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Y[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
+        plt.subplot(246)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
+        plt.subplot(247)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
+
+        plt.subplot(248)
+        plt.bar(2 * X[:20], 2.0 * np.abs(Yblack[:20]) / N)
+        plt.xlabel('Length to buckle width ratio, l/w')
 
         self.fft_results = (2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
 

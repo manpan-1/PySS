@@ -159,7 +159,7 @@ def fetch_hist(odb, step_name, node_name, hist_out_name):
 # TO BE FIXED. THE REFERENCE POINTS (rp1key, ho1key etc.) ARE NOT GENERIC.
 # Fetch maximum load, displacement and LPF for a riks analysis.
 # The method assumes that a) the the odb is located in the current directory
-def history_max(odb_name, step_name):
+def history_max(odb_obj, step_name):
     """
     Look for the max value in a history output.
 
@@ -168,24 +168,15 @@ def history_max(odb_name, step_name):
 
     Parameters
     ----------
-    odb_name : class
-        Abaqus model containing the history results
-    step_name : string
+    odb_obj : Abaqus database object
+        Abaqus model filename.
+    step_name : str
         Name of the step
-
-    Attributes
-    ----------
-
-    Notes
-    -----
-
-    References
-    ----------
 
     """
 
-    my_odb = odbAccess.openOdb(path=odb_name + '.odb')
-    riks_step = my_odb.steps[step_name]
+    # my_odb = odbAccess.openOdb(path=odb_name)
+    riks_step = odb_obj.steps[step_name]
     rp1key = riks_step.historyRegions.keys()[1]
     ho1key = riks_step.historyRegions[rp1key].historyOutputs.keys()[0]
     rp2key = riks_step.historyRegions.keys()[2]
@@ -199,8 +190,16 @@ def history_max(odb_name, step_name):
     load = load_hist[maxpos][1]
     disp = -disp_hist[maxpos][1]
     lpf = lpf_hist[maxpos][1]
-    odbAccess.closeOdb(my_odb)
     return lpf, load, disp
+
+
+def find_odb_in_cwd(all=False):
+
+    all_odbs = [i for i in os.listdir(os.getcwd()) if i.split(".")[-1] == "odb"]
+    if all:
+        return all_odbs
+    else:
+        return all_odbs[0]
 
 
 def fetch_eigenv(odb_name, step_name, n_eigen):
