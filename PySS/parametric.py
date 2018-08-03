@@ -12,6 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 class FactorialDatabase:
+    """Read and manage databases holding results of factorial tables."""
     def __init__(self, dimensions, responses):
         self.responses = responses
         self.dimensions = dimensions
@@ -28,9 +29,9 @@ class FactorialDatabase:
         filename : str
             Relative path/filename.
 
-        Return
-        ------
-            FactorialDatabase
+        Returns
+        -------
+        :obj:`FactorialDatabase`
 
         """
         # with open(filename, 'rU') as infile:
@@ -49,35 +50,76 @@ class FactorialDatabase:
         dim_lengths = [len(set(dim_ticks[:, i])) for i in range(n_dim)]
         dim_names = [db[i][0] for i in range(n_dim)]
 
-        # with open(filename, 'r') as infile:
-        #     all_lines = [[c.split(sep=":")[0]] + c.split(sep=":")[1].split(sep=",") for c in infile]
-        #     db = {c[0]: c[1:] for c in zip(*all_lines)}
-
-        # for key in db.keys():
-        #     if len(key.split(",")) > 1:
-        #         n_dim = len(key.split(","))
-        #         dim_str = key
-        # dim_ticks = np.array([c.split(sep=",") for c in db[dim_str]])
-        # dim_lengths = [len(set(dim_ticks[:, i])) for i in range(n_dim)]
-        # dim_names = dim_str.split(sep=",")
         full_list = {i[0]: i[1:][0] for i in zip(dim_names, dim_ticks.T)}
-
-        # del db[dim_str]
-
-        # df = pd.DataFrame(full_dict)
 
         Address = namedtuple("map", " ".join(dim_names))
         args = [tuple(sorted(set(dim_ticks[:, i]))) for i, j in enumerate(dim_names)]
-        addressbook = Address(*args)
+        dimensions = Address(*args)
 
-        mtx = {i: np.empty(dim_lengths) for i in all_responses.keys()}
+        responses = {i: np.empty(dim_lengths) for i in all_responses.keys()}
         for response in all_responses.keys():
             for i, response_value in enumerate(all_responses[response]):
-                current_idx = tuple(addressbook[idx].index(full_list[name][i]) for idx, name in enumerate(dim_names))
-                mtx[response][current_idx] = response_value
-            mtx[response].flags.writeable = False
+                current_idx = tuple(dimensions[idx].index(full_list[name][i]) for idx, name in enumerate(dim_names))
+                responses[response][current_idx] = response_value
+            responses[response].flags.writeable = False
 
-        return cls(addressbook, mtx)
+        return cls(dimensions, responses)
+
+    def to_file(self, filename):
+        """
+        Write the database to file.
+
+        Parameters
+        ----------
+        filename : str
+
+        """
+        with open(filename, "w") as fh:
+            ndimes = len(self.dimensions)
+            fh.write(str(ndimes) + " dimensions\n")
+            fh.write(";".join(self.dimensions._fields) + ";" + ";".join(self.responses.keys()) + "\n")
+
+            # Create the combinations list
+            combinations = tuple(product(*self.dimensions))
+
+            # Write the values line by line
+            for n, i in enumerate(combinations):
+                fh.write(";".join(i) + ";" + ";".join([str(self.responses[rkey].flatten()[n]) for rkey in self.responses.keys()]) + "\n")
+
+    def new_from_slice(self, slice_at, responses=None):
+        """
+        Create a new database from a slice of the current one.
+
+        Parameters
+        ----------
+        slice_at : dict of int
+            A dictionary of the keys to be sliced at the assigned values.
+        responses : list of strings, optional
+            The name of the requested response to be sliced. All responses are carried by default.
+
+        Returns
+        -------
+        :obj:`FactorialDatabase`
+
+        """
+        if responses is None:
+            responses = self.responses.keys()
+
+        # Dimensions of the child database
+        dim_names = [i for i in self.dimensions._fields if not i in slice_at.keys()]
+
+        exclude = []
+        for i in slice_at.keys():
+            exclude.append(self.dimensions._fields.index(i))
+
+        Address = namedtuple("map", " ".join(dim_names))
+        args = [i for n, i in enumerate(self.dimensions) if n not in exclude]
+        dimensions = Address(*args)
+
+        # Build the slices of matrices for all the responses
+        values = {response: self.get_slice(slice_at, response) for response in responses}
+
+        return FactorialDatabase(dimensions, values)
 
     def get_slice(self, slice_at, response):
         """
