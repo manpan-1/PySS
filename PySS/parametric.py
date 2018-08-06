@@ -155,7 +155,55 @@ class FactorialDatabase:
         """
         return (self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
-    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None):
+    #TODO: docstring
+    def multi_contour(self, slice_at, subplots_of, response):
+        """
+        Figure with multiple subplots.
+
+        Parameters
+        ----------
+
+        :param slice_at:
+        :param subplots_of:
+        :param response:
+        :return:
+
+        """
+        vmax = self.get_slice(slice_at, response).max()
+        vmin = self.get_slice(slice_at, response).min()
+
+        iter_dimension = self.dimensions[self.dimensions._fields.index(subplots_of)]
+        subplots = len(iter_dimension)
+        n_divisors = tuple(divisors(subplots))
+        x_subplots = n_divisors[len(n_divisors)//2]
+        y_subplots = int(subplots/x_subplots)
+        sbplt = str(x_subplots) + str(y_subplots)
+
+        # Make a copy of the slice dimensions
+        crrnt_slice = {}
+        for i in slice_at:
+            crrnt_slice[i] = slice_at[i]
+
+        crrnt_slice[subplots_of] = None
+
+        # Loop through subplots
+        fig = plt.figure()
+        for crrnt_sbplt, i in enumerate(iter_dimension):
+            crrnt_slice[subplots_of] = crrnt_sbplt
+            self.contour_2d(
+                crrnt_slice,
+                response,
+                fig=fig,
+                sbplt=int(sbplt + str(crrnt_sbplt + 1)),
+                vmin=vmin,
+                vmax=vmax
+            )
+
+        fig.tight_layout()
+
+        return fig
+
+    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None, **kwargs):
         """
         Contour plot.
 
@@ -201,9 +249,9 @@ class FactorialDatabase:
 
         # levels = np.arange(0, 2., 0.025)
         # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
-        sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r)
-        sbplt2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno)
-        plt.clabel(sbplt, inline=1, fontsize=10)
+        contour1 = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r, **kwargs)
+        contour2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno, **kwargs)
+        plt.clabel(contour1, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
         ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
@@ -236,6 +284,7 @@ class FactorialDatabase:
         # azim elev =  -160  30
         # 3 subplots side by side
         # 4 subplots: Bbox(x0=0.0, y0=0.0, x1=6.43, y1=5.14)
+        # 4 subplots: Bbox(x0=0.0, y0=0.0, x1=8, y1=6.5)
         # azim elev -160 30
         plt.rc('text', usetex=True)
         if fig is None:
