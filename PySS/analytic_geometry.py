@@ -1117,7 +1117,7 @@ class Points3D:
             z.append(self.swarm[i].coords[2])
 
         # Plot the data
-        ax.scatter(x, y, z, c='r', s=1)
+        ax.scatter(x, y, z, c="black", s=1)
 
     def get_xs(self):
         """Return an array of the `x` coordinates."""

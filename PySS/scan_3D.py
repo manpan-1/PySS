@@ -6,7 +6,9 @@ Module containing methods related to 3D scanning.
 """
 import numpy as np
 from PySS import analytic_geometry as ag
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from scipy.ndimage.filters import gaussian_filter
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.interpolate as intrp
 
@@ -146,18 +148,22 @@ class FlatFace(Scan3D):
             for point in self.points_wcsys:
                 self.face2ref_dist.append(point.distance_to_plane(self.ref_plane))
 
-    def plot_face(self, fig=None, reduced=None):
+    def scatter_face(self, fig=None, reduced=None):
         """
-        Surface plotter.
+        Surface scatter plot.
 
-        Plot the 3d points and the fitted plane.
+        Scatter plot of the scanned points with the fitted plane.
 
         Parameters
         ----------
-        fig : Object of class matplotlib.figure.Figure, optional
+        fig : :obj:`matplotlib.figure.Figure` object object, optional
             The figure window to be used for plotting. By default, a new window is created.
         reduced : float
             Value between 0 and 1 describing the percentage of all the points to randomly picked and plotted.
+
+        Returns
+        -------
+        :obj:`matplotlib.figure.Figure` object
 
         """
         # Average and range of the points.
@@ -228,15 +234,136 @@ class FlatFace(Scan3D):
         plt.xlabel('x')
         plt.ylabel('y')
         ax.set_zlabel('z')
-        ax.set_xlim3d(self.points_wcsys.centre[0] - plot_dim / 2, self.points_wcsys.centre[0] + plot_dim / 2)
-        ax.set_ylim3d(self.points_wcsys.centre[1] - plot_dim / 2, self.points_wcsys.centre[1] + plot_dim / 2)
-        ax.set_zlim3d(self.points_wcsys.centre[2] - plot_dim / 2, self.points_wcsys.centre[2] + plot_dim / 2)
+        #ax.set_xlim3d(self.points_wcsys.centre[0] - plot_dim / 2, self.points_wcsys.centre[0] + plot_dim / 2)
+        #ax.set_ylim3d(self.points_wcsys.centre[1] - plot_dim / 2, self.points_wcsys.centre[1] + plot_dim / 2)
+        #ax.set_zlim3d(self.points_wcsys.centre[2] - plot_dim / 2, self.points_wcsys.centre[2] + plot_dim / 2)
         plt.show()
 
         # Return the figure handle.
         return fig
 
-    def regulate_imperf(self):
+    def surf_face(self, fig=None, invert=False, **kargs):
+        """
+        Surface plot.
+
+        Plots the scanned surface.
+
+        Parameters
+        ----------
+        fig : :obj:`matplotlib.figure.Figure` object object, optional
+            The figure window to be used for plotting. By default, a new window is created.
+        **kargs : redirected to :obj:`matplotlib.pyplot.plot_surface` method.
+
+        Returns
+        -------
+        :obj:`matplotlib.figure.Figure` object
+
+        """
+
+        # Average and range of the points.
+        self.points_wcsys.calc_csl()
+        plot_dim = max(self.points_wcsys.size[0], self.points_wcsys.size[1], self.points_wcsys.size[2])
+
+        # Get a figure to plot on
+        if fig is None:
+            fig = plt.figure()
+            ax = Axes3D(fig)
+        else:
+            ax = fig.get_axes()[0]
+
+        if not self.regular_grid:
+            self.regularise_grid()
+
+        if invert:
+            x, y, z = self.regular_grid[0], self.regular_grid[1], -self.regular_grid[2]
+        else:
+            x, y, z = self.regular_grid[0], self.regular_grid[1], self.regular_grid[2]
+
+        ax.plot_surface(x, y, z, **kargs)
+
+        return fig
+
+    def contour_face(self, fig=None, invert=False, **kargs):
+        """
+        Surface plot.
+
+        Plots the scanned surface.
+
+        Parameters
+        ----------
+        fig : :obj:`matplotlib.figure.Figure` object object, optional
+            The figure window to be used for plotting. By default, a new window is created.
+        **kargs : redirected to :obj:`matplotlib.pyplot.contour` method.
+
+        Returns
+        -------
+        :obj:`matplotlib.figure.Figure` object
+
+        """
+
+        # Average and range of the points.
+        self.points_wcsys.calc_csl()
+        plot_dim = max(self.points_wcsys.size[0], self.points_wcsys.size[1], self.points_wcsys.size[2])
+
+        # Get a figure to plot on
+        if fig is None:
+            fig, ax = plt.subplots()
+        else:
+            ax = fig.get_axes()[0]
+
+        if not self.regular_grid:
+            self.regularise_grid()
+
+        if invert:
+            x, y, z = self.regular_grid[0], self.regular_grid[1], -self.regular_grid[2]
+        else:
+            x, y, z = self.regular_grid[0], self.regular_grid[1], self.regular_grid[2]
+
+        ax.contour(x, y, z, **kargs)
+
+        return fig
+
+    def contourf_face(self, fig=None, invert=False, **kargs):
+        """
+        Surface plot.
+
+        Plots the scanned surface.
+
+        Parameters
+        ----------
+        fig : :obj:`matplotlib.figure.Figure` object object, optional
+            The figure window to be used for plotting. By default, a new window is created.
+        **kargs : redirected to :obj:`matplotlib.pyplot.contour` method.
+
+        Returns
+        -------
+        :obj:`matplotlib.figure.Figure` object
+
+        """
+
+        # Average and range of the points.
+        self.points_wcsys.calc_csl()
+        plot_dim = max(self.points_wcsys.size[0], self.points_wcsys.size[1], self.points_wcsys.size[2])
+
+        # Get a figure to plot on
+        if fig is None:
+            fig, ax = plt.subplots()
+        else:
+            ax = fig.get_axes()[0]
+
+        if not self.regular_grid:
+            self.regularise_grid()
+
+        if invert:
+            x, y, z = self.regular_grid[0], self.regular_grid[1], -self.regular_grid[2]
+        else:
+            x, y, z = self.regular_grid[0], self.regular_grid[1], self.regular_grid[2]
+
+        ax.contourf(x, y, z, **kargs)
+
+        return fig
+
+    def regularise_grid(self):
         """
         Re-sample the list of imperfection displacements on a regular 2D grid.
 
@@ -250,7 +377,7 @@ class FlatFace(Scan3D):
         n_x = np.ceil(np.sqrt(n_tot * l_x / l_y))
         n_y = np.ceil(np.sqrt(n_tot * l_y / l_x))
 
-        step = min([l_x / n_x, l_y / n_y])
+        step = min([l_x / n_x, l_y / n_y])/2
 
         grid_x, grid_y = np.meshgrid(
             np.arange(
@@ -262,7 +389,7 @@ class FlatFace(Scan3D):
                 self.points_lcsys.lims[1][1],
                 step=step))
 
-        grid_z = intrp.griddata(points, values, (grid_x, grid_y), method='nearest')
+        grid_z = intrp.griddata(points, values, (grid_x, grid_y), method='cubic')
 
         self.regular_grid = [grid_x, grid_y, grid_z]
 

@@ -470,266 +470,29 @@ class Part:
         self.struct_props = struct_props
 
 
+class SimplySupportedPlate:
+    """
+
+    """
+    def __init__(self, width, thickness, length, f_y, psi=None):
+        if psi is None:
+            psi = 1
+
+        self.width = width
+        self.thickness = thickness
+        self.length = length
+        self.f_y = f_y
+        self.psi = psi
+        self.area = width * thickness
+
+        self.plate_class = plate_class(thickness, width, f_y)
+        self.sigma_cr = sigma_cr_plate(thickness, width, psi=psi)
+        self.a_eff = calc_a_eff(thickness, width, f_y, psi)
+
+
 # SIMPLY SUPPORTED PLATE
 
 #TODO: Implement EN50341. Currently the resistance is calculated only for pure compression elements. Add interaction.
-
-def calc_a_eff(
-        thickness,
-        width,
-        f_yield,
-        psi=None):
-    # Docstring
-    """
-    Plastic design resistance of a plate.
-
-    Calculates the resistance of a plate according to EN1993-1-1 and
-    EN1993-1-5. The plate is assumed simply supported.
-
-    Parameters
-    ----------
-    thickness : float
-        [mm] Plate thickness
-    width : float
-        [mm] Plate width
-    f_yield : float
-        [MPa] Yield stress
-    psi : float, optional
-        [_] Ratio of the min over max stress for a linear distribution,
-        (sigma_min / sigma_max)
-        Default = 1, which implies a uniform distribution
-
-    Returns
-    -------
-    float
-        [N] Plastic design resistance
-
-    Notes
-    -----
-    To be extended to include cantilever plate (outstand members)
-
-    References
-    ----------
-    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
-        Brussels: CEN, 2005.
-    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
-
-    """
-
-    # Convert inputs to floats
-    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
-
-    # Default value for psi
-    if psi is None:
-        psi = 1.
-    else:
-        psi = float(psi)
-
-    # Calculate kapa_sigma
-    k_sigma = 8.2 / (1.05 + psi)
-
-    # Aeff calculation.
-    # Reduction factor for the effective area of the profile acc. to EC3-1-5
-    classification = width / (thickness * np.sqrt(235. / f_yield))
-    lambda_p = classification / (28.4 * np.sqrt(k_sigma))
-    if lambda_p > 0.673 and plate_class(thickness, width, f_yield) == 4:
-        rho = (lambda_p - 0.055 * (3 + psi)) / lambda_p ** 2
-    else:
-        rho = 1.
-
-    # Effective area
-    a_eff = rho * thickness * width
-
-    return(a_eff)
-
-
-def calc_a_eff_new(
-        thickness,
-        width,
-        f_yield,
-        psi=None):
-    # Docstring
-    """
-    Plastic design resistance of a plate.
-
-    Calculates the resistance of a plate according to EN1993-1-1 and
-    EN1993-1-5. The plate is assumed simply supported.
-
-    Parameters
-    ----------
-    thickness : float
-        [mm] Plate thickness
-    width : float
-        [mm] Plate width
-    f_yield : float
-        [MPa] Yield stress
-    psi : float, optional
-        [_] Ratio of the min over max stress for a linear distribution,
-        (sigma_min / sigma_max)
-        Default = 1, which implies a uniform distribution
-
-    Returns
-    -------
-    float
-        [N] Plastic design resistance
-
-    Notes
-    -----
-    To be extended to include cantilever plate (outstand members)
-
-    References
-    ----------
-    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
-        Brussels: CEN, 2005.
-    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
-
-    """
-
-    # Convert inputs to floats
-    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
-
-    # Default value for psi
-    if psi is None:
-        psi = 1.
-    else:
-        psi = float(psi)
-
-    # Calculate kapa_sigma
-    k_sigma = 8.2 / (1.05 + psi)
-
-    # Aeff calculation.
-    # Reduction factor for the effective area of the profile acc. to EC3-1-5
-    classification = width / (thickness * np.sqrt(235. / f_yield))
-    lambda_p = classification / (28.4 * np.sqrt(k_sigma))
-    if lambda_p > 0.673 and plate_class_new(thickness, width, f_yield) == 4:
-        rho = (lambda_p - 0.055 * (3 + psi)) / lambda_p ** 2
-    else:
-        rho = 1.
-
-    # Effective area
-    a_eff = rho * thickness * width
-
-    return(a_eff)
-
-
-def n_pl_rd(
-        thickness,
-        width,
-        f_yield,
-        psi=None
-):
-    # Docstring
-    """
-    Plastic design resistance of a plate.
-
-    Calculates the resistance of a plate according to EN1993-1-1 and
-    EN1993-1-5. The plate is assumed simply supported.
-
-    Parameters
-    ----------
-    thickness : float
-        [mm] Plate thickness
-    width : float
-        [mm] Plate width
-    f_yield : float
-        [MPa] Yield stress
-    psi : float, optional
-        [_] Ratio of the min over max stress for a linear distribution,
-        (sigma_min / sigma_max)
-        Default = 1, which implies a uniform distribution
-
-    Returns
-    -------
-    float
-        [N] Plastic design resistance
-
-    Notes
-    -----
-    To be extended to include cantilever plate (outstand members)
-
-    References
-    ----------
-    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
-        Brussels: CEN, 2005.
-    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
-
-    """
-
-    # Convert inputs to floats
-    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
-
-    # Default value for psi
-    if psi is None:
-        psi = 1.
-    else:
-        psi = float(psi)
-
-    # Axial compression resistance , Npl
-    nn_pl_rd = calc_a_eff(thickness, width, f_yield, psi=None) * f_yield
-
-    # Return value
-    return nn_pl_rd
-
-
-def n_pl_rd_new(
-        thickness,
-        width,
-        f_yield,
-        psi=None
-):
-    # Docstring
-    """
-    Plastic design resistance of a plate.
-
-    Calculates the resistance of a plate according to EN1993-1-1 and
-    EN1993-1-5. The plate is assumed simply supported.
-
-    Parameters
-    ----------
-    thickness : float
-        [mm] Plate thickness
-    width : float
-        [mm] Plate width
-    f_yield : float
-        [MPa] Yield stress
-    psi : float, optional
-        [_] Ratio of the min over max stress for a linear distribution,
-        (sigma_min / sigma_max)
-        Default = 1, which implies a uniform distribution
-
-    Returns
-    -------
-    float
-        [N] Plastic design resistance
-
-    Notes
-    -----
-    To be extended to include cantilever plate (outstand members)
-
-    References
-    ----------
-    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
-        Brussels: CEN, 2005.
-    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
-
-    """
-
-    # Convert inputs to floats
-    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
-
-    # Default value for psi
-    if psi is None:
-        psi = 1.
-    else:
-        psi = float(psi)
-
-    # Axial compression resistance , Npl
-    nn_pl_rd = calc_a_eff_new(thickness, width, f_yield, psi=None) * f_yield
-
-    # Return value
-    return nn_pl_rd
-
-
 def plate_class(
         thickness,
         width,
@@ -896,6 +659,144 @@ def sigma_cr_plate(
     return sigma_cr
 
 
+def calc_a_eff(
+        thickness,
+        width,
+        f_yield,
+        psi=None):
+    # Docstring
+    """
+    Plastic design resistance of a plate.
+
+    Calculates the resistance of a plate according to EN1993-1-1 and
+    EN1993-1-5. The plate is assumed simply supported.
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Plate thickness
+    width : float
+        [mm] Plate width
+    f_yield : float
+        [MPa] Yield stress
+    psi : float, optional
+        [_] Ratio of the min over max stress for a linear distribution,
+        (sigma_min / sigma_max)
+        Default = 1, which implies a uniform distribution
+
+    Returns
+    -------
+    float
+        [N] Plastic design resistance
+
+    Notes
+    -----
+    To be extended to include cantilever plate (outstand members)
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
+        Brussels: CEN, 2005.
+    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
+
+    """
+
+    # Convert inputs to floats
+    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
+
+    # Default value for psi
+    if psi is None:
+        psi = 1.
+    else:
+        psi = float(psi)
+
+    # Calculate kapa_sigma
+    k_sigma = 8.2 / (1.05 + psi)
+
+    # Aeff calculation.
+    # Reduction factor for the effective area of the profile acc. to EC3-1-5
+    classification = width / (thickness * np.sqrt(235. / f_yield))
+    lambda_p = classification / (28.4 * np.sqrt(k_sigma))
+    if lambda_p > 0.673 and plate_class(thickness, width, f_yield) == 4:
+        rho = (lambda_p - 0.055 * (3 + psi)) / lambda_p ** 2
+    else:
+        rho = 1.
+
+    # Effective area
+    a_eff = rho * thickness * width
+
+    return(a_eff)
+
+
+def calc_a_eff_new(
+        thickness,
+        width,
+        f_yield,
+        psi=None):
+    # Docstring
+    """
+    Plastic design resistance of a plate.
+
+    Calculates the resistance of a plate according to EN1993-1-1 and
+    EN1993-1-5. The plate is assumed simply supported.
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Plate thickness
+    width : float
+        [mm] Plate width
+    f_yield : float
+        [MPa] Yield stress
+    psi : float, optional
+        [_] Ratio of the min over max stress for a linear distribution,
+        (sigma_min / sigma_max)
+        Default = 1, which implies a uniform distribution
+
+    Returns
+    -------
+    float
+        [N] Plastic design resistance
+
+    Notes
+    -----
+    To be extended to include cantilever plate (outstand members)
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
+        Brussels: CEN, 2005.
+    .. [2] Eurocode 3: Design of steel structures - Part 1-5: Plated structural elements. Brussels: CEN, 2005.
+
+    """
+
+    # Convert inputs to floats
+    thickness, width, f_yield = float(thickness), float(width), float(f_yield)
+
+    # Default value for psi
+    if psi is None:
+        psi = 1.
+    else:
+        psi = float(psi)
+
+    # Calculate kapa_sigma
+    k_sigma = 8.2 / (1.05 + psi)
+
+    # Aeff calculation.
+    # Reduction factor for the effective area of the profile acc. to EC3-1-5
+    classification = width / (thickness * np.sqrt(235. / f_yield))
+    lambda_p = classification / (28.4 * np.sqrt(k_sigma))
+    if lambda_p > 0.673 and plate_class_new(thickness, width, f_yield) == 4:
+        rho = (lambda_p - 0.055 * (3 + psi)) / lambda_p ** 2
+    else:
+        rho = 1.
+
+    # Effective area
+    a_eff = rho * thickness * width
+
+    return(a_eff)
+
+
 # CYLINDRICAL SHELLS
 
 def tube_class(
@@ -952,20 +853,55 @@ def tube_class(
     return t_class
 
 
-def sigma_x_rd(
+def shell_length_category(
+        radius,
+        thickness,
+        length
+):
+    """Return the length gategory of a cylinder acc. to EC3-1-6 D.1.2.1"""
+
+    omega = length / np.sqrt(radius * thickness)
+    if 1.7 <= omega <= 0.5 * (radius / thickness):
+        length_category = 1
+    elif omega < 1.7:
+        length_category = 0
+    else:
+        length_category = 2
+
+    return length_category
+
+
+def shell_length_category_new(
+        radius,
+        thickness,
+        length
+):
+    """Return the length gategory of a cylinder acc. to EC3-1-6 D.1.2.1"""
+
+    omega = length / np.sqrt(radius * thickness)
+    if 1.7 <= omega <= 2.86 * (radius / thickness):
+        length_category = 1
+    elif omega < 1.7:
+        length_category = 0
+    else:
+        length_category = 2
+
+    return length_category
+
+
+def sigma_x_rcr(
         thickness,
         radius,
         length,
-        f_y_k,
-        fab_quality=None,
-        gamma_m1=None,
-        flex_kapa=None,
+        kapa_bc=None,
+        e_modulus=None
 ):
     """
-    Meridional design buckling stress.
+    Critical meridional stress for cylindrical shell.
 
-    Calculates the meridional buckling stress for a cylindrical shell
-    according to EN1993-1-6 [1].
+    Calculates the critical load for a cylindrical shell under pure
+    compression and assumes uniform stress distribution. Calculation
+    according to EN1993-1-6 [1], Annex D.
 
     Parameters
     ----------
@@ -975,116 +911,65 @@ def sigma_x_rd(
         [mm] Cylinder radius
     length : float
         [mm] Cylnder length
-    f_y_k : float
-        [MPa] Characteristic yield strength
-    fab_quality : str, optional
-        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
-        The three classes correspond to .006, .010 and .016 times the
-        width of a dimple on the shell.
-        Default = 'fcA', which implies excelent fabrication
-    gamma_m1 : int, optional
-        [_] Partial safety factor
-        Default = 1.1
 
     Returns
     -------
-    float
-        [MPa] Meridional buckling stress
+    list
+        List of 2 elements:
+        a) float, Critical load [N]
+        b) string, length category
 
     References
     ----------
     .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
-        Brussels: CEN, 2006._
+        Brussels: CEN, 2006.
 
     """
 
-    # Default values
-    if fab_quality is None:
-        fab_quality = 'fcA'
+    if kapa_bc is None:
+        kapa_bc = 1
 
-    if gamma_m1 is None:
-        # Default is the recommended lowest.
-        gamma_m1 = 1.1
-    else:
-        gamma_m1 = float(gamma_m1)
+    if e_modulus is None:
+        e_modulus = 210000.
 
-    if flex_kapa is None:
-        flex_kapa = 1.
-        
-    # Check class acc. to EC3-1
-    t_class = tube_class(thickness, radius, f_y_k)
-    if t_class == 4:
-        # Fabrication quality class acc. to table D2
-        if fab_quality is 'fcA':
-            q_factor = 40.
-        elif fab_quality is 'fcB':
-            q_factor = 25.
-        elif fab_quality is 'fcC':
-            q_factor = 16.
-        else:
-            print('Invalid fabrication class input. Choose between \'fcA\', \'fcB\' and \'fcC\' ')
-            return
-    
-        # Critical meridinal stress, calculated on separate function
-        category = shell_length_category(radius, thickness, length)
-        sigma_cr = sigma_x_rcr(thickness, radius, length)
-    
-        # Shell slenderness
-        lmda = np.sqrt(f_y_k / sigma_cr)
-        delta_w_k = (1. / q_factor) * np.sqrt(radius / thickness) * thickness
-        alpha = 0.62 / (1 + 1.91 * (delta_w_k / thickness) ** 1.44)
-        beta = 0.6
-        eta = 1.
-        if category == 2:
-            # For long cylinders, a formula is suggested for lambda, EC3-1-6 D1.2.2(4)
-            # Currently, the general form is used. to be fixed.
-            lmda_0 = 0.2
-            # lmda_0 = 0.2 + 0.1 * (sigma_e_M / sigma_e)
-        else:
-            lmda_0 = 0.2
-    
-        lmda_p = np.sqrt(alpha / (1. - beta))
-    
-        # Buckling reduction factor, chi
-        if lmda <= lmda_0:
-            chi_shell = 1.
-        elif lmda < lmda_p:
-            chi_shell = 1. - beta * ((lmda - lmda_0) / (lmda_p - lmda_0)) ** eta
-        else:
-            chi_shell = alpha / (lmda ** 2)
-    
-        # Buckling stress
-        sigma_rk = chi_shell * f_y_k
-        sigma_rd_shell = sigma_rk / gamma_m1
-    else:
-        sigma_rd_shell = f_y_k
-    
-    # flex buckling
-    r_o = radius + thickness / 2.
-    r_i = radius - thickness / 2.
-    moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
-    area = 2 * np.pi * radius * thickness
-    chi = chi_flex(length, area, moi, f_y_k, b_curve="c", kapa_bc=flex_kapa)
-    sigma_rd = sigma_rd_shell * chi
+    # Convert inputs to floats
+    thickness, radius, length = float(thickness), float(radius), float(length)
 
-    # Return value
-    return sigma_rd
+    # Length category
+    lenca = shell_length_category(radius, thickness, length)
+
+    # Elastic critical load acc. to EN3-1-6 Annex D
+    omega = length / np.sqrt(radius * thickness)
+    if lenca == 1:
+        c_x = 1.
+    elif lenca == 0:
+        c_x = 1.36 - (1.83 / omega) + (2.07 / omega ** 2)
+    elif lenca == 2:
+        # c_x_b is read on table D.1 of EN3-1-5 Annex D acc. to BCs
+        # BC1 - BC1 is used on the Abaqus models (both ends clamped, see EN3-1-5 table 5.1)
+        c_x_b = 6.
+        c_x_n = max((1 + 0.2 * (1 - 2 * omega * thickness / radius) / c_x_b), 0.6)
+        c_x = c_x_n
+
+    # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
+    sigma_cr = 0.605 * 210000 * c_x * thickness / radius
+
+    return sigma_cr
 
 
-def sigma_x_rd_new(
+def sigma_x_rcr_new(
         thickness,
         radius,
         length,
-        f_y_k,
-        fab_quality=None,
-        gamma_m1=None,
-        flex_kapa=None
+        kapa_bc=None,
+        e_modulus=None
 ):
     """
-    Meridional design buckling stress.
+    Critical meridional stress for cylindrical shell.
 
-    Calculates the meridional buckling stress for a cylindrical shell
-    according to EN1993-1-6 [1].
+    Calculates the critical load for a cylindrical shell under pure
+    compression and assumes uniform stress distribution. Calculation
+    according to EN1993-1-6 [1], Annex D.
 
     Parameters
     ----------
@@ -1094,107 +979,53 @@ def sigma_x_rd_new(
         [mm] Cylinder radius
     length : float
         [mm] Cylnder length
-    f_y_k : float
-        [MPa] Characteristic yield strength
-    fab_quality : str, optional
-        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
-        The three classes correspond to .006, .010 and .016 times the
-        width of a dimple on the shell.
-        Default = 'fcA', which implies excelent fabrication
-    gamma_m1 : int, optional
-        [_] Partial safety factor
-        Default = 1.1
 
     Returns
     -------
-    float
-        [MPa] Meridional buckling stress
+    list
+        List of 2 elements:
+        a) float, Critical load [N]
+        b) string, length category
 
     References
     ----------
     .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
-        Brussels: CEN, 2006._
+        Brussels: CEN, 2006.
 
     """
 
-    # Default values
-    if fab_quality is None:
-        fab_quality = 'fcA'
+    if kapa_bc is None:
+        kapa_bc = 1
 
-    if gamma_m1 is None:
-        # The default value 1.2 is as the lowest recommended on EC3-1-6 8.5.2(10) NOTE.
-        gamma_m1 = 1.2
+    if e_modulus is None:
+        e_modulus = 210000.
+
+    # Convert inputs to floats
+    thickness, radius, length = float(thickness), float(radius), float(length)
+
+    lenca = shell_length_category_new(radius, thickness, length)
+    omega = length / np.sqrt(radius * thickness)
+
+    if lenca == 0:
+        c_x = 1.36 - (1.83 / omega) + (2.07 / omega ** 2)
+        # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
+        sigma_cr = 0.605 * 210000 * c_x * thickness / radius
+    elif lenca == 1:
+        c_x = 1.
+        # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
+        sigma_cr = 0.605 * 210000 * c_x * thickness / radius
+    elif lenca == 2:
+        # flex buckling
+        r_o = radius + thickness / 2.
+        r_i = radius - thickness / 2.
+        moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
+        area = 2 * np.pi * radius * thickness
+        sigma_cr = n_cr_flex(length, moi, kapa_bc=kapa_bc, e_modulus=e_modulus) / area
     else:
-        gamma_m1 = float(gamma_m1)
-
-    if flex_kapa is None:
-        flex_kapa = 1.
-
-    t_class = tube_class(thickness, radius, f_y_k)
-    
-    if t_class == 4:
-        # Fabrication quality class acc. to table D2
-        if fab_quality is 'fcA':
-            q_factor = 40.
-        elif fab_quality is 'fcB':
-            q_factor = 25.
-        elif fab_quality is 'fcC':
-            q_factor = 16.
-        else:
-            print('Invalid fabrication class input. Choose between \'fcA\', \'fcB\' and \'fcC\' ')
-            return
-    
-        # Critical meridinal stress, calculated on separate function
-        category = shell_length_category_new(radius, thickness, length)
-        sigma_cr = sigma_x_rcr_new(thickness, radius, length)
-    
-        # Shell slenderness
-        lmda = np.sqrt(f_y_k / sigma_cr)
-        delta_w_k = (1. / q_factor) * np.sqrt(radius / thickness) * thickness
-        alpha_xG = 0.83
-        alpha_I = 0.06 + 0.93 / (1 + 2.7 * (delta_w_k / thickness)**0.85)
-        alpha = alpha_xG * alpha_I
-        
-        #alpha = 0.62 / (1 + 1.91 * (delta_w_k / thickness) ** 1.44)
-        beta = 1 - 0.95 / (1 + 1.12 * (delta_w_k / thickness))
-        eta = 5.8 / (1 + 4.6 * (delta_w_k / thickness)**0.87)
-        chi_xh = 1.15
-        lambda_p = np.sqrt(alpha / (1 - beta))
-        
-        if category == 2:
-            # For long cylinders, a formula is suggested for lambda under compression/bending , EC3-1-6 D1.2.2(4)
-            # Pure compression is assumed.
-            lmda_0 = 0.1 + (0 / 1.)
-            # lmda_0 = 0.2 + 0.1 * (sigma_e_M / sigma_e)
-        else:
-            lmda_0 = 0.2
-    
-        lmda_p = np.sqrt(alpha / (1. - beta))
-    
-        # Buckling reduction factor, chi
-        if lmda <= lmda_0:
-            chi_shell = chi_xh - (lmda / lmda_0)*(chi_xh - 1)
-        elif lmda < lmda_p:
-            chi_shell = 1. - beta * ((lmda - lmda_0) / (lmda_p - lmda_0)) ** eta
-        else:
-            chi_shell = alpha / (lmda ** 2)
-    
-        # Buckling stress
-        sigma_rk = chi_shell * f_y_k
-        sigma_rd_shell = sigma_rk / gamma_m1
-    else:
-        sigma_rd_shell = f_y_k
-
-    # flex buckling
-    r_o = radius + thickness / 2.
-    r_i = radius - thickness / 2.
-    moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
-    area = 2 * np.pi * radius * thickness
-    chi = chi_flex(length, area, moi, f_y_k, b_curve="c", kapa_bc=flex_kapa)
-    sigma_rd = sigma_rd_shell * chi
+        print("Wrong length category.")
 
     # Return value
-    return sigma_rd
+    return sigma_cr
 
 
 def n_cr_shell(
@@ -1283,19 +1114,19 @@ def n_cr_shell_new(
     return nn_cr_shell
 
 
-def sigma_x_rcr(
+def sigma_x_rk(
         thickness,
         radius,
         length,
-        kapa_bc=None,
-        e_modulus=None
-):  
+        f_y_k,
+        fab_quality=None,
+        flex_kapa=None
+):
     """
-    Critical meridional stress for cylindrical shell.
+    Meridional design buckling stress.
 
-    Calculates the critical load for a cylindrical shell under pure
-    compression and assumes uniform stress distribution. Calculation
-    according to EN1993-1-6 [1], Annex D.
+    Calculates the meridional buckling stress for a cylindrical shell
+    according to EN1993-1-6 [1].
 
     Parameters
     ----------
@@ -1305,151 +1136,358 @@ def sigma_x_rcr(
         [mm] Cylinder radius
     length : float
         [mm] Cylnder length
+    f_y_k : float
+        [MPa] Characteristic yield strength
+    fab_quality : str, optional
+        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
+        The three classes correspond to .006, .010 and .016 times the
+        width of a dimple on the shell.
+        Default = 'fcA', which implies excelent fabrication
+    gamma_m1 : int, optional
+        [_] Partial safety factor
+        Default = 1.1
 
     Returns
     -------
-    list
-        List of 2 elements:
-        a) float, Critical load [N]
-        b) string, length category
+    float
+        [MPa] Meridional buckling stress
 
     References
     ----------
     .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
-        Brussels: CEN, 2006.
+        Brussels: CEN, 2006._
 
     """
+
+    # Default values
+    if fab_quality is None:
+        fab_quality = 'fcA'
+
+    if flex_kapa is None:
+        flex_kapa = 1.
+        
+    # Check class acc. to EC3-1
+    t_class = tube_class(thickness, radius, f_y_k)
+    if t_class == 4:
+        # Fabrication quality class acc. to table D2
+        if fab_quality is 'fcA':
+            q_factor = 40.
+        elif fab_quality is 'fcB':
+            q_factor = 25.
+        elif fab_quality is 'fcC':
+            q_factor = 16.
+        else:
+            print('Invalid fabrication class input. Choose between \'fcA\', \'fcB\' and \'fcC\' ')
+            return
     
-    if kapa_bc is None:
-        kapa_bc = 1
+        # Critical meridional stress, calculated on separate function
+        category = shell_length_category(radius, thickness, length)
+        sigma_cr = sigma_x_rcr(thickness, radius, length)
     
-    if e_modulus is None:
-        e_modulus = 210000.
+        # Shell slenderness
+        lmda = np.sqrt(f_y_k / sigma_cr)
+        delta_w_k = (1. / q_factor) * np.sqrt(radius / thickness) * thickness
+        alpha = 0.62 / (1 + 1.91 * (delta_w_k / thickness) ** 1.44)
+        beta = 0.6
+        eta = 1.
+        if category == 2:
+            # For long cylinders, a formula is suggested for lambda, EC3-1-6 D1.2.2(4)
+            # Currently, the general form is used. to be fixed.
+            lmda_0 = 0.2
+            # lmda_0 = 0.2 + 0.1 * (sigma_e_M / sigma_e)
+        else:
+            lmda_0 = 0.2
     
-    # Convert inputs to floats
-    thickness, radius, length = float(thickness), float(radius), float(length)
-
-    #Length category
-    lenca = shell_length_category_new(radius, thickness, length)
-
-    # Elastic critical load acc. to EN3-1-6 Annex D
-    omega = length / np.sqrt(radius * thickness)
-    if lenca == 1:
-        c_x = 1.
-    elif lenca == 0:
-        c_x = 1.36 - (1.83 / omega) + (2.07 / omega ** 2)
-    elif lenca == 2:
-        # c_x_b is read on table D.1 of EN3-1-5 Annex D acc. to BCs
-        # BC1 - BC1 is used on the Abaqus models (both ends clamped, see EN3-1-5 table 5.1)
-        c_x_b = 6.
-        c_x_n = max((1 + 0.2 * (1 - 2 * omega * thickness / radius) / c_x_b), 0.6)
-        c_x = c_x_n
-
-    # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
-    sigma_cr = 0.605 * 210000 * c_x * thickness / radius
-
-    return sigma_cr
-
-
-def sigma_x_rcr_new(
-        thickness,
-        radius,
-        length,
-        kapa_bc=None,
-        e_modulus=None
-):  
-    """
-    Critical meridional stress for cylindrical shell.
-
-    Calculates the critical load for a cylindrical shell under pure
-    compression and assumes uniform stress distribution. Calculation
-    according to EN1993-1-6 [1], Annex D.
-
-    Parameters
-    ----------
-    thickness : float
-        [mm] Shell thickness
-    radius : float
-        [mm] Cylinder radius
-    length : float
-        [mm] Cylnder length
-
-    Returns
-    -------
-    list
-        List of 2 elements:
-        a) float, Critical load [N]
-        b) string, length category
-
-    References
-    ----------
-    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
-        Brussels: CEN, 2006.
-
-    """
+        lmda_p = np.sqrt(alpha / (1. - beta))
     
-    if kapa_bc is None:
-        kapa_bc = 1
+        # Buckling reduction factor, chi
+        if lmda <= lmda_0:
+            chi_shell = 1.
+        elif lmda < lmda_p:
+            chi_shell = 1. - beta * ((lmda - lmda_0) / (lmda_p - lmda_0)) ** eta
+        else:
+            chi_shell = alpha / (lmda ** 2)
     
-    if e_modulus is None:
-        e_modulus = 210000.
-    
-    # Convert inputs to floats
-    thickness, radius, length = float(thickness), float(radius), float(length)
-
-    lenca = shell_length_category_new(radius, thickness, length)
-    omega = length / np.sqrt(radius * thickness)
-    
-    if lenca == 0:
-        c_x = 1.36 - (1.83 / omega) + (2.07 / omega ** 2)
-        # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
-        sigma_cr = 0.605 * 210000 * c_x * thickness / radius
-    elif lenca == 1:
-        c_x = 1.
-        # Calculate critical stress, eq. D.2 on EN3-1-5 D.1.2.1-5
-        sigma_cr = 0.605 * 210000 * c_x * thickness / radius
-    elif lenca == 2:
-        # flex buckling
-        r_o = radius + thickness / 2.
-        r_i = radius - thickness / 2.
-        moi = np.pi * (r_o**4 - r_i**4) / 4.
-        area = 2 * np.pi * radius * thickness
-        sigma_cr = n_cr_flex(length, moi, kapa_bc=kapa_bc, e_modulus=e_modulus) / area
+        # Buckling stress
+        sigma_rk = chi_shell * f_y_k
+        sigma_rd_shell = sigma_rk
     else:
-        print("Wrong length category.")
+        sigma_rd_shell = f_y_k
+    
+    # flex buckling
+    r_o = radius + thickness / 2.
+    r_i = radius - thickness / 2.
+    moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
+    area = 2 * np.pi * radius * thickness
+    chi = chi_flex(length, area, moi, f_y_k, b_curve="c", kapa_bc=flex_kapa)
+    sigma_rd = sigma_rd_shell * chi
 
     # Return value
-    return sigma_cr
+    return sigma_rd
 
 
-def shell_length_category(radius, thickness, length):
-    """Return the length gategory of a cylinder acc. to EC3-1-6 D.1.2.1"""
+def sigma_x_rk_new(
+        thickness,
+        radius,
+        length,
+        f_y_k,
+        fab_quality=None,
+        flex_kapa=None
+):
+    """
+    Meridional characteristic buckling stress.
+
+    Calculates the characteristic meridional buckling stress for a cylindrical shell according to EN1993-1-6 [1].
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Shell thickness
+    radius : float
+        [mm] Cylinder radius
+    length : float
+        [mm] Cylnder length
+    f_y_k : float
+        [MPa] Characteristic yield strength
+    fab_quality : str, optional
+        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
+        The three classes correspond to .006, .010 and .016 times the
+        width of a dimple on the shell.
+        Default = 'fcA', which implies excelent fabrication
+    gamma_m1 : int, optional
+        [_] Partial safety factor
+        Default = 1.2 (new suggestion from prEN draft)
+
+    Returns
+    -------
+    float
+        [MPa] Meridional buckling stress
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
+        Brussels: CEN, 2006._
+
+    """
+
+    # Default values
+    if fab_quality is None:
+        fab_quality = 'fcA'
+
+    if flex_kapa is None:
+        flex_kapa = 1.
+
+    t_class = tube_class(thickness, radius, f_y_k)
     
-    omega = length / np.sqrt(radius * thickness)
-    if 1.7 <= omega <= 0.5 * (radius / thickness):
-        length_category = 1
-    elif omega < 1.7:
-        length_category = 0
-    else:
-        length_category = 2
-
-    return length_category
-
-
-def shell_length_category_new(radius, thickness, length):
-    """Return the length gategory of a cylinder acc. to EC3-1-6 D.1.2.1"""
-
-    omega = length / np.sqrt(radius * thickness)
-    if 1.7 <= omega <= 2.86 * (radius / thickness):
-        length_category = 1
-    elif omega < 1.7:
-        length_category = 0
-    else:
-        length_category = 2
+    if t_class == 4:
+        # Fabrication quality class acc. to table D2
+        if fab_quality is 'fcA':
+            q_factor = 40.
+        elif fab_quality is 'fcB':
+            q_factor = 25.
+        elif fab_quality is 'fcC':
+            q_factor = 16.
+        else:
+            print('Invalid fabrication class input. Choose between \'fcA\', \'fcB\' and \'fcC\' ')
+            return
+    
+        # Critical meridinal stress, calculated on separate function
+        category = shell_length_category_new(radius, thickness, length)
+        sigma_cr = sigma_x_rcr_new(thickness, radius, length)
+    
+        # Shell slenderness
+        lmda = np.sqrt(f_y_k / sigma_cr)
+        delta_w_k = (1. / q_factor) * np.sqrt(radius / thickness) * thickness
+        alpha_xG = 0.83
+        alpha_I = 0.06 + 0.93 / (1 + 2.7 * (delta_w_k / thickness)**0.85)
+        alpha = alpha_xG * alpha_I
         
-    return length_category
-       
+        #alpha = 0.62 / (1 + 1.91 * (delta_w_k / thickness) ** 1.44)
+        beta = 1 - 0.95 / (1 + 1.12 * (delta_w_k / thickness))
+        eta = 5.8 / (1 + 4.6 * (delta_w_k / thickness)**0.87)
+        chi_xh = 1.15
+        lambda_p = np.sqrt(alpha / (1 - beta))
         
+        if category == 2:
+            # For long cylinders, a formula is suggested for lambda under compression/bending , EC3-1-6 D1.2.2(4)
+            # Pure compression is assumed.
+            lmda_0 = 0.1 + (0 / 1.)
+            # lmda_0 = 0.2 + 0.1 * (sigma_e_M / sigma_e)
+        else:
+            lmda_0 = 0.2
+    
+        lmda_p = np.sqrt(alpha / (1. - beta))
+    
+        # Buckling reduction factor, chi
+        if lmda <= lmda_0:
+            chi_shell = chi_xh - (lmda / lmda_0)*(chi_xh - 1)
+        elif lmda < lmda_p:
+            chi_shell = 1. - beta * ((lmda - lmda_0) / (lmda_p - lmda_0)) ** eta
+        else:
+            chi_shell = alpha / (lmda ** 2)
+    
+        # Buckling stress
+        sigma_rk = chi_shell * f_y_k
+        sigma_rd_shell = sigma_rk / gamma_m1
+    else:
+        sigma_rd_shell = f_y_k
+
+    # flex buckling
+    r_o = radius + thickness / 2.
+    r_i = radius - thickness / 2.
+    moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
+    area = 2 * np.pi * radius * thickness
+    chi = chi_flex(length, area, moi, f_y_k, b_curve="c", kapa_bc=flex_kapa)
+    sigma_rd = sigma_rd_shell * chi
+
+    # Return value
+    return sigma_rd
+
+
+def sigma_x_rd(
+        thickness,
+        radius,
+        length,
+        f_y_k,
+        fab_quality=None,
+        gamma_m1=None,
+        flex_kapa=None
+):
+    """
+    Meridional design buckling stress.
+
+    Calculates the meridional buckling stress for a cylindrical shell
+    according to EN 1993-1-6 [1]. Flexural buckling is also checked acc to EN 1993-1-1 [2]
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Shell thickness
+    radius : float
+        [mm] Cylinder radius
+    length : float
+        [mm] Cylnder length
+    f_y_k : float
+        [MPa] Characteristic yield strength
+    fab_quality : str, optional
+        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
+        The three classes correspond to .006, .010 and .016 times the
+        width of a dimple on the shell.
+        Default = 'fcA', which implies excelent fabrication
+    gamma_m1 : int, optional
+        [_] Partial safety factor
+        Default = 1.1
+
+    Returns
+    -------
+    float
+        [MPa] Meridional buckling stress
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-6: Strength and stability of shell structures.
+        Brussels: CEN, 2006._
+    .. [2] Eurocode 3: Design of steel structures - Part 1-1: General rules and rules for buildings.
+        Brussels: CEN, 2005._
+
+    """
+
+    # Default values
+    if fab_quality is None:
+        fab_quality = 'fcA'
+
+    if gamma_m1 is None:
+        # The default value 1.2 is as the lowest recommended on EC3-1-6 8.5.2(10) NOTE.
+        gamma_m1 = 1.1
+    else:
+        gamma_m1 = float(gamma_m1)
+
+    if flex_kapa is None:
+        flex_kapa = 1.
+
+    sigma_xx_rd = sigma_x_rk(
+        thickness,
+        radius,
+        length,
+        f_y_k,
+        fab_quality=fab_quality,
+        flex_kapa=flex_kapa
+    ) / gamma_m1
+
+    return sigma_xx_rd
+
+
+def sigma_x_rd_new(
+        thickness,
+        radius,
+        length,
+        f_y_k,
+        fab_quality=None,
+        gamma_m1=None,
+        flex_kapa=None
+):
+    """
+    Meridional design buckling stress.
+
+    Calculates the meridional buckling stress for a cylindrical shell
+    according to the new draft of EN1993-1-6 [1].
+
+    Parameters
+    ----------
+    thickness : float
+        [mm] Shell thickness
+    radius : float
+        [mm] Cylinder radius
+    length : float
+        [mm] Cylnder length
+    f_y_k : float
+        [MPa] Characteristic yield strength
+    fab_quality : str, optional
+        [_] Fabrication quality class. Accepts: 'fcA', 'fcB', 'fcC'
+        The three classes correspond to .006, .010 and .016 times the
+        width of a dimple on the shell.
+        Default = 'fcA', which implies excelent fabrication
+    gamma_m1 : int, optional
+        [_] Partial safety factor
+        Default = 1.1
+
+    Returns
+    -------
+    float
+        [MPa] Meridional buckling stress
+
+    References
+    ----------
+    .. [1] Eurocode 3: Design of steel structures - Part 1-6 draft: Strength and stability of shell structures.
+        Brussels: CEN, 2006._
+
+    """
+
+    # Default values
+    if fab_quality is None:
+        fab_quality = 'fcA'
+
+    if gamma_m1 is None:
+        # The default value 1.2 is as the lowest recommended on EC3-1-6 8.5.2(10) NOTE.
+        gamma_m1 = 1.2
+    else:
+        gamma_m1 = float(gamma_m1)
+
+    if flex_kapa is None:
+        flex_kapa = 1.
+
+    sigma_xx_rd = sigma_x_rk(
+        thickness,
+        radius,
+        length,
+        f_y_k,
+        fab_quality=fab_quality,
+        flex_kapa=flex_kapa
+    ) / gamma_m1
+
+    return sigma_xx_rd
+
+
 # OVERALL BUCKLING
 def n_cr_flex(
         length,

@@ -1099,7 +1099,7 @@ class RealSpecimen:
         fig1 = plt.figure()
         Axes3D(fig1)
         for i in range(-len(self.sides), 0):
-            self.sides[i].plot_face(reduced=0.01, fig=fig1)
+            self.sides[i].scatter_face(reduced=0.01, fig=fig1)
         for i in self.edges:
             max_z = max([i.coords[2] for i in i.points_wcsys.swarm])
             min_z = min([i.coords[2] for i in i.points_wcsys.swarm])
@@ -1162,7 +1162,7 @@ class RealSpecimen:
         Plot all the facets together
         """
         for i in self.sides:
-            i.regulate_imperf()
+            i.regularise_grid()
 
         fig = plt.figure()
         for i, facet in enumerate(self.sides):
@@ -1598,9 +1598,8 @@ def main(
          add_real_specimens=True,
          add_experimental_data=True,
          add_numerical_data=True,
-         make_plots=True,
+         make_plots=False,
          export=False,
-         print_reports=True
          ):
 
     if directory is None:

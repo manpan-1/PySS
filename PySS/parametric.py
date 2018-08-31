@@ -6,12 +6,17 @@ import os
 import PySS.FileLock as flck
 import csv
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
 from collections import namedtuple
 from mpl_toolkits.mplot3d import Axes3D
 
+matplotlib.rcParams.update({'font.size': 12})
+matplotlib.rcParams.update({'axes.titlesize': 12})
+plt = matplotlib.pyplot
+plt.rc('text', usetex=True)
 
-class FactorialDatabase:
+
+class FactDB:
     """Read and manage databases holding results of factorial tables."""
     def __init__(self, dimensions, responses):
         self.responses = responses
@@ -119,7 +124,7 @@ class FactorialDatabase:
         # Build the slices of matrices for all the responses
         values = {response: self.get_slice(slice_at, response) for response in responses}
 
-        return FactorialDatabase(dimensions, values)
+        return FactDB(dimensions, values)
 
     def get_slice(self, slice_at, response):
         """
@@ -142,7 +147,7 @@ class FactorialDatabase:
         for name, value in zip(slice_at.keys(), slice_at.values()):
             idx_arr[self.get_idx(name)] = value
 
-        return self.responses[response][idx_arr]
+        return self.responses[response][tuple(idx_arr)]
 
     def get_idx(self, attrname):
         """
@@ -156,7 +161,7 @@ class FactorialDatabase:
         return (self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
     #TODO: docstring
-    def multi_contour(self, slice_at, subplots_of, response):
+    def plt_contours(self, slice_at, response, subplots_of=None, colorbar=True, transpose_sbplts=False):
         """
         Figure with multiple subplots.
 
@@ -169,27 +174,84 @@ class FactorialDatabase:
         :return:
 
         """
-        vmax = self.get_slice(slice_at, response).max()
-        vmin = self.get_slice(slice_at, response).min()
+        if subplots_of is None:
+            subplots_of = "null"
+            iter_dimension = [None]
+            subplots = 1
+            x_subplots = 1
+            y_subplots = 1
+        else:
+            iter_dimension = self.dimensions[self.get_idx(subplots_of)]
+            subplots = len(iter_dimension)
+            n_divisors = tuple(divisors(subplots))
+            x_subplots = n_divisors[len(n_divisors)//2]
+            y_subplots = int(subplots/x_subplots)
+            if transpose_sbplts:
+                x_subplots, y_subplots = y_subplots, x_subplots
 
-        iter_dimension = self.dimensions[self.dimensions._fields.index(subplots_of)]
-        subplots = len(iter_dimension)
-        n_divisors = tuple(divisors(subplots))
-        x_subplots = n_divisors[len(n_divisors)//2]
-        y_subplots = int(subplots/x_subplots)
-        sbplt = str(x_subplots) + str(y_subplots)
+        sbplt = str(y_subplots) + str(x_subplots)
+
+        # Start and configure a figure. The following are configurable values.
+        x_padding = 0.6  # inches
+        y_padding = 0.45  # inches
+
+        pltax_x_width = 2.0  #inches
+        pltax_y_width = 1.5  #inches
+
+        relative_x_spacing = 0.02
+        relative_y_spacing = 0.38
+
+        x_spacing = relative_x_spacing * pltax_x_width  # inches
+        y_spacing = relative_y_spacing * pltax_y_width  # inches
+
+        if x_subplots == 1:
+            x_inches_fig = 2 * x_padding + (1-relative_x_spacing/2)*pltax_x_width
+        else:
+            x_inches_fig = 2 * x_padding + pltax_x_width * x_subplots
+
+        if y_subplots == 1:
+            y_inches_fig = 2 * y_padding + (1-relative_y_spacing/2)*pltax_y_width
+        else:
+            y_inches_fig = 2 * y_padding + pltax_y_width * y_subplots
+
+        relative_x_padding = x_padding / x_inches_fig
+        relative_y_padding = y_padding / y_inches_fig
+
+        fig = plt.figure(figsize=(x_inches_fig, y_inches_fig), dpi=100)
+
+        fig.subplots_adjust(
+            left=relative_x_padding,
+            bottom=relative_y_padding,
+            right=1-relative_x_padding,
+            top=1-relative_y_padding,
+            wspace=relative_x_spacing,
+            hspace=relative_y_spacing
+        )
+
+        # print(
+        #     relative_x_padding,
+        #     relative_y_padding,
+        #     1-relative_x_padding,
+        #     1-relative_y_padding,
+        #     relative_x_spacing,
+        #     relative_y_spacing
+        # )
 
         # Make a copy of the slice dimensions
         crrnt_slice = {}
         for i in slice_at:
             crrnt_slice[i] = slice_at[i]
 
-        crrnt_slice[subplots_of] = None
+        # Find max and min from all subplots
+        vmax = self.get_slice(slice_at, response).max()
+        vmin = self.get_slice(slice_at, response).min()
 
-        # Loop through subplots
-        fig = plt.figure()
+        #crrnt_slice[subplots_of] = None
+        # Loop through subplots and plot
         for crrnt_sbplt, i in enumerate(iter_dimension):
-            crrnt_slice[subplots_of] = crrnt_sbplt
+            if i is not None:
+                crrnt_slice[subplots_of] = crrnt_sbplt
+
             self.contour_2d(
                 crrnt_slice,
                 response,
@@ -199,11 +261,30 @@ class FactorialDatabase:
                 vmax=vmax
             )
 
-        fig.tight_layout()
+        for n, i in enumerate(fig.axes):
+            i.set_xticks([10, 20, 30, 40])
+            i.set_yticks([30, 40, 50, 60])
+            if not n/x_subplots == int(n/x_subplots):
+                i.set_yticklabels([])
+                i.set_ylabel("")
+            if n < subplots - (subplots / y_subplots):
+                i.set_xlabel("")
+
+        if colorbar:
+            m = plt.cm.ScalarMappable(cmap=plt.cm.inferno)
+            m.set_array(np.linspace(vmin, vmax, num=5))
+            cb_ax = fig.add_axes([
+                1 - relative_x_padding + x_spacing/x_inches_fig,
+                relative_y_padding,
+                0.1 / x_inches_fig,
+                1 - 2 * relative_y_padding
+            ])  # [left, bottom, width, height]
+
+            plt.colorbar(m, cax=cb_ax)
 
         return fig
 
-    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None, **kwargs):
+    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None, colorbar=False, **kwargs):
         """
         Contour plot.
 
@@ -221,9 +302,9 @@ class FactorialDatabase:
             Subplot description number. Default is 111, which implies a figure with a single plot on.
 
         """
-        plt.rc('text', usetex=True)
         if fig is None:
             fig = plt.figure()
+
             if sbplt is None:
                 ax = fig.add_subplot(111)
             else:
@@ -249,14 +330,20 @@ class FactorialDatabase:
 
         # levels = np.arange(0, 2., 0.025)
         # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
-        contour1 = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r, **kwargs)
+        contour1 = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r, linewidths=1, **kwargs)
         contour2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno, **kwargs)
-        plt.clabel(contour1, inline=1, fontsize=10)
+        plt.clabel(contour1, inline=1)
+        if colorbar:
+            cb_ax = fig.add_axes([0.86, 0.18, 0.02, 0.67])
+            plt.colorbar(contour2, cax=cb_ax)
+
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
-        ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        if ttl:
+            ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
         ax.set_xlabel("$" + x_label + "$")
         ax.set_ylabel("$" + y_label + "$")
+        ax.grid()
 
         return fig
 

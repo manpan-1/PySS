@@ -10,6 +10,7 @@ import csv
 import codecs
 from os.path import basename, splitext
 from matplotlib import pyplot as plt
+import PySS.analytic_geometry as ag
 
 
 class Experiment:
@@ -31,7 +32,7 @@ class Experiment:
             self.channels = channels
         self.name = name
 
-    def plot2d(self, x_data, y_data, ax=None, scale=None):
+    def plot2d(self, x_data, y_data, ax=None, scale=None, **kargs):
         """
         Plot two recorded channels against each other.
 
@@ -43,6 +44,8 @@ class Experiment:
             Key from self.data dictionary for the y-axis.
         ax : axis object, optional
             The axis to be used for plotting. By default, new figure and axis are created.
+        scale : list or tuple of 2 numbers
+            Scaling factors for `x` and `y` axis
 
         """
 
@@ -57,7 +60,12 @@ class Experiment:
         if scale is None:
             scale=(1, 1)
 
-        ax.plot(self.channels[x_data]["data"]*scale[0], self.channels[y_data]["data"]*scale[1], label=self.name)
+        ax.plot(
+            self.channels[x_data]["data"]*scale[0],
+            self.channels[y_data]["data"]*scale[1],
+            label=self.name,
+            **kargs
+        )
 
         plt.xlabel(x_data + ", [" + self.channels[x_data]["units"] + "]")
         plt.ylabel(y_data + ", [" + self.channels[y_data]["units"] + "]")
@@ -167,11 +175,11 @@ class CouponTest(Experiment):
 
         """
 
-        # Find the indices of the values larger then 1 kN, as a way of excluding head and tail recorded data.
+        # Filter the indices of the values larger then 1 kN, as a way of excluding head and tail recorded data.
         valid = np.where(self.channels["Load"]["data"] > 1)[0]
 
-        self.channels["Load"]["data"] = self.channels["Load"]["data"][valid]
-        self.channels["Epsilon"]["data"] = self.channels["Epsilon"]["data"][valid]
+        for i in self.channels.values():
+            i["data"] = i["data"][valid]
 
     def calc_init_stiffness(self):
         """
@@ -270,40 +278,107 @@ class CouponTest(Experiment):
         self.channels["StrainPl"] = {"data": self.channels["StrainEng"]["data"] - self.channels["StressEng"]["data"] / self.young,
                                      "units": "mm/mm"}
 
-    def plot_stressstrain_eng(self, ax=None):
-        ax = self.plot2d('StrainEng', 'StressEng', ax=ax)
-        plt.xlabel('Strain, $\epsilon_{eng}$ [%]')
-        plt.ylabel('Stress, $\sigma_{eng}$ [MPa]')
+    def calc_fy(self):
+        """
+        Calculate the yield stress based on the 0.2% plastic strain criterion.
+
+        """
+        line = ag.Line2D.from_2_points([0.2, 0], [0.2 + 900 / 2100, 900])
+        for i, strain in enumerate(self.channels["StrainEng"]["data"] * 100):
+            if (self.channels["StressEng"]["data"][i] - line.y_for_x(strain)) < 0:
+                self.f_yield = self.channels["StressEng"]["data"][i]
+                return
+
+    def plot_stressstrain_eng(self, ax=None, **kargs):
+        ax = self.plot2d('StrainEng', 'StressEng', scale=[100, 1], ax=ax, **kargs)
+        plt.xlabel('Strain, $\\varepsilon_{eng}$ [\%]')
+        plt.ylabel('Stress, $\\sigma_{eng}$ [MPa]')
         plt.title(self.name)
         return ax
 
 
-def main():
-    cp = []
+def load_coupons():
+    cp = {}
+
+    # 2 mm plate
+    widths = [20.408, 20.386, 20.397, 20.366, 20.35, 20.39]
+    thicknesses = [1.884, 1.891, 1.9, 1.88, 1.882, 1.878]
+    l_0 = 80
     for i in range(1, 7):
-        coupon = CouponTest.from_file('./data/coupons/cp{}.asc'.format(i))
+        coupon = CouponTest.from_file('./data/coupons/S700_2mm/cp{}.asc'.format(i))
         coupon.clean_initial()
         coupon.calc_init_stiffness()
         coupon.offset_to_0()
+        coupon.add_initial_data(thicknesses[i-1], widths[i-1], l_0=l_0)
+        coupon.calc_stress_strain()
+        coupon.calc_young()
+        coupon.calc_plastic_strain()
+        coupon.calc_fy()
 
-        cp.append(coupon)
+        cp["cp{}_2mm".format(i)] = coupon
+
+    # 3 mm plate
+    widths = [19.68, 19.63, 19.68, 19.716, 19.681, 19.76]
+    thicknesses = [3.037, 3.031, 3.038, 3.051, 3.038, 3.036]
 
 
-    widths = [20.408, 20.386, 20.397, 20.366, 20.35, 20.39]
-    thicknesses = [1.884, 1.891, 1.9, 1.88, 1.882, 1.878]
-    l_0s = [80., 80., 80., 80., 80., 80.]
+    for i in range(1, 7):
+        coupon = CouponTest.from_file('./data/coupons/S700_3mm/cp{}.asc'.format(i))
+        coupon.clean_initial()
+        coupon.calc_init_stiffness()
+        coupon.offset_to_0()
+        coupon.add_initial_data(thicknesses[i-1], widths[i-1], l_0=l_0)
+        coupon.calc_stress_strain()
+        coupon.calc_young()
+        coupon.calc_plastic_strain()
+        coupon.calc_fy()
 
-    for i , x in enumerate(cp):
-        x.add_initial_data(thicknesses[i], widths[i], l_0s[i])
-        x.calc_stress_strain()
-        x.calc_young()
-        x.calc_plastic_strain()
-        # x.plot_stressstrain_eng()
+        cp["cp{}_3mm".format(i)] = coupon
 
-        ax = plt.axes()
-        x.plot_stressstrain_eng(ax=ax)
+    # 4 mm plate
+    widths = [19.375, 20.335, 20.345]
+    thicknesses = [4.0732, 4.0744, 4.0906]
 
-    ax.plot([0.002, 0.002 + 900 / 210000], [0, 900])
+    for i in [1, 2, 3]:
+        coupon = CouponTest.from_file('./data/coupons/S700_4mm/cp{}.asc'.format(i))
+        coupon.clean_initial()
+        coupon.calc_init_stiffness()
+        coupon.offset_to_0()
+        coupon.add_initial_data(thicknesses[i-1], widths[i-1], l_0=l_0)
+        coupon.calc_stress_strain()
+        coupon.calc_young()
+        coupon.calc_plastic_strain()
+        coupon.calc_fy()
+
+        cp["cp{}_4mm".format(i)] = coupon
+
+    # 3 mm plate
+    # for i in range(1, 7):
+    #     coupon = CouponTest.from_file('./data/coupons/3mm/cp{}.asc'.format(i))
+    #     coupon.clean_initial()
+    #     coupon.calc_init_stiffness()
+    #     coupon.offset_to_0()
+    #
+    #     cp["cp{}_2mm".format(i)] = coupon
+    #
+    #
+    # widths = [20.408, 20.386, 20.397, 20.366, 20.35, 20.39]
+    # thicknesses = [1.884, 1.891, 1.9, 1.88, 1.882, 1.878]
+    # l_0s = [80., 80., 80., 80., 80., 80.]
+    #
+    # for i in range(1, 7):
+    #     x = cp["cp{}_2mm".format(i)]
+    #     x.add_initial_data(thicknesses[i-1], widths[i-1], l_0s[i-1])
+    #     x.calc_stress_strain()
+    #     x.calc_young()
+    #     x.calc_plastic_strain()
+    #     # x.plot_stressstrain_eng()
+    #
+    #     ax = plt.axes()
+    #     x.plot_stressstrain_eng(ax=ax)
+    #
+    # ax.plot([0.002, 0.002 + 900 / 210000], [0, 900])
+
 
     return cp
 
