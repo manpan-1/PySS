@@ -225,7 +225,7 @@ class FlatFace(Scan3D):
             # z = np.dot(np.c_[xx, yy, np.ones(xx.shape)], self.plane_coeff).reshape(x.shape)
 
             # Plot the plane
-            ax.plot_surface(x, y, z, rstride=1, cstride=1, alpha=0.2)
+            ax.plot_surface(x, y, z, rstride=1, cstride=1, alpha=0.2, color="black")
 
         else:
             print('No reference plane to plot. Use `fit_plane` to create one.')
@@ -241,6 +241,99 @@ class FlatFace(Scan3D):
 
         # Return the figure handle.
         return fig
+
+    def regularise_grid(self):
+        """
+        Re-sample the list of imperfection displacements on a regular 2D grid.
+
+        """
+        # Re-mesh flat face local coordinates on a regular grid
+        points = np.column_stack([self.points_lcsys.get_xs(), self.points_lcsys.get_ys()])
+        values = self.points_lcsys.get_zs()
+        l_x = self.points_lcsys.size[0]
+        l_y = self.points_lcsys.size[1]
+        n_tot = len(self.points_lcsys)
+        n_x = np.ceil(np.sqrt(n_tot * l_x / l_y))
+        n_y = np.ceil(np.sqrt(n_tot * l_y / l_x))
+
+        step = min([l_x / n_x, l_y / n_y])/2
+
+        grid_x, grid_y = np.meshgrid(
+            np.arange(
+                self.points_lcsys.lims[0][0]+2,
+                self.points_lcsys.lims[0][1]-2,
+                step=step),
+            np.arange(
+                self.points_lcsys.lims[1][0]+2,
+                self.points_lcsys.lims[1][1]-2,
+                step=step))
+
+        grid_z = intrp.griddata(points, values, (grid_x, grid_y), method='cubic')
+
+        self.regular_grid = [grid_x, grid_y, grid_z]
+
+    def fft(self):
+        """
+        Perform 3D fourier
+
+        """
+        # Initialise an empty array
+        field = self.regular_grid[2]
+
+        # Number of samples on each direction
+        n_x, n_y = field.shape[1], field.shape[0]
+
+        # Perform 2D fourier and shift the result to centre
+        freq = np.fft.fft2(field)
+
+        # Calculate the magnitude and phase spectra. Keep only half symmetric results on each axis.
+        magnitude_log_spectrum = np.log(np.abs(freq))[:n_y // 2, :n_x // 2]
+        magnitude_spectrum = np.abs(freq)[:n_y // 2, :n_x // 2]
+        phase_spectrum = np.angle(freq)[:n_y // 2, :n_x // 2]
+
+        # Reconstruct the initial field
+        #re_field = np.real(np.fft.ifft2(freq))
+
+        # Max amp waves
+        max_waves = []
+        temp_mag_field = magnitude_spectrum[:5, :10]
+        for i in range(10):
+            cur_max = np.unravel_index(temp_mag_field.argmax(), temp_mag_field.shape)
+            max_waves.append([cur_max, temp_mag_field[cur_max]])
+            temp_mag_field[cur_max] = 0
+
+        print("Max waves :")
+        print(max_waves)
+
+        # Plot
+        fig = plt.figure()
+
+        fig.add_subplot(411)
+        plt.imshow(field, cmap='gray')
+        plt.title('Field'), plt.xticks([]), plt.yticks([])
+        plt.colorbar()
+
+        fig.add_subplot(412)
+        plt.imshow(magnitude_log_spectrum, cmap='gray')
+        plt.title('Magnitude spectrum')
+
+        fig.add_subplot(413)
+        plt.imshow(phase_spectrum, cmap='gray')
+        plt.title('Phase spectrum')
+
+        fig.add_subplot(414)
+        plt.imshow(magnitude_log_spectrum[:15, :15], cmap='gray')
+        plt.title('Magnitude spectrum zoom')
+        plt.colorbar()
+
+        # surface plot
+        mini_x, mini_y = np.meshgrid(
+            np.arange(0, temp_mag_field.shape[1]),
+            np.arange(0, temp_mag_field.shape[0]))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(mini_x, mini_y, temp_mag_field)
 
     def surf_face(self, fig=None, invert=False, **kargs):
         """
@@ -323,7 +416,7 @@ class FlatFace(Scan3D):
 
         return fig
 
-    def contourf_face(self, fig=None, invert=False, **kargs):
+    def contourf_face(self, ax=None, invert=False, **kargs):
         """
         Surface plot.
 
@@ -346,115 +439,24 @@ class FlatFace(Scan3D):
         plot_dim = max(self.points_wcsys.size[0], self.points_wcsys.size[1], self.points_wcsys.size[2])
 
         # Get a figure to plot on
-        if fig is None:
+        if ax is None:
             fig, ax = plt.subplots()
         else:
-            ax = fig.get_axes()[0]
+            fig = ax.figure
 
         if not self.regular_grid:
             self.regularise_grid()
 
+        zero = np.nanmin(self.regular_grid[0])
+
         if invert:
-            x, y, z = self.regular_grid[0], self.regular_grid[1], -self.regular_grid[2]
+            x, y, z = self.regular_grid[0] - zero, self.regular_grid[1], -self.regular_grid[2]
         else:
-            x, y, z = self.regular_grid[0], self.regular_grid[1], self.regular_grid[2]
+            x, y, z = self.regular_grid[0] - zero, self.regular_grid[1], self.regular_grid[2]
 
         ax.contourf(x, y, z, **kargs)
 
         return fig
-
-    def regularise_grid(self):
-        """
-        Re-sample the list of imperfection displacements on a regular 2D grid.
-
-        """
-        # Re-mesh flat face local coordinates on a regular grid
-        points = np.column_stack([self.points_lcsys.get_xs(), self.points_lcsys.get_ys()])
-        values = self.points_lcsys.get_zs()
-        l_x = self.points_lcsys.size[0]
-        l_y = self.points_lcsys.size[1]
-        n_tot = len(self.points_lcsys)
-        n_x = np.ceil(np.sqrt(n_tot * l_x / l_y))
-        n_y = np.ceil(np.sqrt(n_tot * l_y / l_x))
-
-        step = min([l_x / n_x, l_y / n_y])/2
-
-        grid_x, grid_y = np.meshgrid(
-            np.arange(
-                self.points_lcsys.lims[0][0],
-                self.points_lcsys.lims[0][1],
-                step=step),
-            np.arange(
-                self.points_lcsys.lims[1][0],
-                self.points_lcsys.lims[1][1],
-                step=step))
-
-        grid_z = intrp.griddata(points, values, (grid_x, grid_y), method='cubic')
-
-        self.regular_grid = [grid_x, grid_y, grid_z]
-
-    def fft(self):
-        """
-        Perform 3D fourier
-
-        """
-        # Initialise an empty array
-        field = self.regular_grid[2]
-
-        # Number of samples on each direction
-        n_x, n_y = field.shape[1], field.shape[0]
-
-        # Perform 2D fourier and shift the result to centre
-        freq = np.fft.fft2(field)
-
-        # Calculate the magnitude and phase spectra. Keep only half symmetric results on each axis.
-        magnitude_log_spectrum = np.log(np.abs(freq))[:n_y // 2, :n_x // 2]
-        magnitude_spectrum = np.abs(freq)[:n_y // 2, :n_x // 2]
-        phase_spectrum = np.angle(freq)[:n_y // 2, :n_x // 2]
-
-        # Reconstruct the initial field
-        #re_field = np.real(np.fft.ifft2(freq))
-
-        # Max amp waves
-        max_waves = []
-        temp_mag_field = magnitude_spectrum[:5, :10]
-        for i in range(10):
-            cur_max = np.unravel_index(temp_mag_field.argmax(), temp_mag_field.shape)
-            max_waves.append([cur_max, temp_mag_field[cur_max]])
-            temp_mag_field[cur_max] = 0
-
-        print("Max waves :")
-        print(max_waves)
-
-        # Plot
-        fig = plt.figure()
-
-        fig.add_subplot(411)
-        plt.imshow(field, cmap='gray')
-        plt.title('Field'), plt.xticks([]), plt.yticks([])
-        plt.colorbar()
-
-        fig.add_subplot(412)
-        plt.imshow(magnitude_log_spectrum, cmap='gray')
-        plt.title('Magnitude spectrum')
-
-        fig.add_subplot(413)
-        plt.imshow(phase_spectrum, cmap='gray')
-        plt.title('Phase spectrum')
-
-        fig.add_subplot(414)
-        plt.imshow(magnitude_log_spectrum[:15, :15], cmap='gray')
-        plt.title('Magnitude spectrum zoom')
-        plt.colorbar()
-
-        # surface plot
-        mini_x, mini_y = np.meshgrid(
-            np.arange(0, temp_mag_field.shape[1]),
-            np.arange(0, temp_mag_field.shape[0]))
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.plot_surface(mini_x, mini_y, temp_mag_field)
 
 
 class RoundedEdge(Scan3D):
@@ -470,7 +472,6 @@ class RoundedEdge(Scan3D):
         self.edge2ref_dist = None
         self.ref_line = None
         self.fft_results = None
-        self.u_max = None
 
         super().__init__(points_wcsys=points_wcsys)
 
@@ -521,12 +522,15 @@ class RoundedEdge(Scan3D):
         self.points_wcsys.quantize(axis=axis)
         self.circles = []
         for group in self.points_wcsys.grouped_data:
-            circle = ag.Circle2D.from_fitting(group)
-            if all([np.linalg.norm(i.coords[:2]) > np.linalg.norm(circle.centre) for i in group]):
-                self.circles.append(circle)
-                self.circles[-1].radius = self.circles[-1].radius + offset
+            if len(group)<3:
+                print("Less than 3 points in the group. No circle fitting at hight:    {}".format(group[0].coords[2]))
             else:
-                print('Suspicious circle from fitting ignored at height:    {}'.format(group[0].coords[2]))
+                circle = ag.Circle2D.from_fitting(group)
+                if all([np.linalg.norm(i.coords[:2]) > np.linalg.norm(circle.centre) for i in group]):
+                    self.circles.append(circle)
+                    self.circles[-1].radius = self.circles[-1].radius + offset
+                else:
+                    print('Suspicious circle from fitting ignored at height:    {}'.format(group[0].coords[2]))
 
     def calc_edge_points(self, other):
         """
@@ -624,12 +628,33 @@ class RoundedEdge(Scan3D):
                   'edge points converged. Edge ignored.')
             return NotImplemented
 
-    def plot_imp(self):
+    def plot_imp(self, ax=None, **kargs):
+        """
+        Plot imperfections.
+
+        Plot the deviation of the edge points to the reference line.
+
+        Parameters
+        ----------
+        ax : :obj:`matplotlib.axes._subplots.AxesSubplot`, optional
+            Axes object to plot on. If non is given, a new figure with one subplot is greated.
+        kargs are forwarded to the plot method.
+
+        Returns
+        -------
+        :obj:`matplotlib.axes._subplots.AxesSubplot`
+
+        """
+
+        if ax is None:
+            fig, ax = plt.subplots()
         if self.edge2ref_dist:
-            plt.plot(self.edge2ref_dist[0], self.edge2ref_dist[1])
+            ax.plot(np.array(self.edge2ref_dist[0]), -np.array(self.edge2ref_dist[1]), **kargs)
         else:
             print('No information for distances between edge points and reference line. Try the calc_edge2ref_dist '
                   'method.')
+
+        return ax
 
     #TODO: docstring
     def fft(self):
@@ -645,8 +670,8 @@ class RoundedEdge(Scan3D):
         # Print information
         dt = t[1] - t[0]
         fa = 1.0 / dt  # scan frequency
-        print('dt=%.5f mm (Sampling distance)' % dt)
-        print('fa=%.2f samples/mm' % fa)
+        # print('dt=%.5f mm (Sampling distance)' % dt)
+        # print('fa=%.2f samples/mm' % fa)
 
         # Displacement values (the signal)
         s = self.edge2ref_dist[1]
@@ -660,56 +685,29 @@ class RoundedEdge(Scan3D):
 
         # Perform fft with windowing
         # Window functions: Choose one of the three
-        hann = np.hanning(len(s))
-        hamm = np.hamming(len(s))
         black = np.blackman(len(s))
-
-        Yhann = np.fft.fft(hann * s)
-        Yhamm = np.fft.fft(hamm * s)
         Yblack = np.fft.fft(black * s)
 
-        # Plot all
-        plt.figure(figsize=(7, 3))
+        # With different windowing filters
+        hann = np.hanning(len(s))
+        hamm = np.hamming(len(s))
+        # Yhann = np.fft.fft(hann * s)
+        # Yhamm = np.fft.fft(hamm * s)
 
-        plt.subplot(241)
-        plt.plot(t, s)
-        plt.title('No windowing')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
+        # Collect the results
+        fft_results = {
+            "widths": edge_length / np.linspace(2, 40, 20),
+            "width_ratios": np.linspace(2, 40, 20),
+            "amps": 2.0 * np.abs(Y[1:21]) / N,
+            "amps_blackman": 2.0 * np.abs(Yblack[1:21]) / N,
+            "amps/width": (2.0 * np.abs(Y[1:21]) / N)/(edge_length / np.linspace(2, 40, 20)),
+            "amps_black/width": (2.0 * np.abs(Yblack[1:21]) / N)/(edge_length / np.linspace(2, 40, 20))
+        }
 
-        plt.subplot(242)
-        plt.plot(t, s * hann)
-        plt.title('Hanning')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
-
-        plt.subplot(243)
-        plt.plot(t, s * hamm)
-        plt.title('Hamming')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
-
-        plt.subplot(244)
-        plt.plot(t, s * black)
-        plt.title('Blackman')
-        plt.ylim(np.min(s) * 3, np.max(s) * 3)
-
-        plt.subplot(245)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Y[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        plt.subplot(246)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        plt.subplot(247)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Yhamm[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        plt.subplot(248)
-        plt.bar(2 * X[:20], 2.0 * np.abs(Yblack[:20]) / N)
-        plt.xlabel('Length to buckle width ratio, l/w')
-
-        self.fft_results = (2 * X[:20], 2.0 * np.abs(Yhann[:20]) / N)
-
-        self.u_max = self.fft_results[1][1:].max() / (edge_length / self.fft_results[0][1 + self.fft_results[1][1:].argmax()])
+        self.fft_results = fft_results
+    #
+    # def plot_fourier(self, ax=None, **kargs):
+    #     pass
 
 
 def main():

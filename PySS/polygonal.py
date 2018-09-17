@@ -15,6 +15,7 @@ import pickle
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+
 #TODO: write extended docstrings for the classes
 class PolygonalColumn:
     """
@@ -43,11 +44,12 @@ class PolygonalColumn:
     def set_theoretical_specimen(self,
                                  n_sides,
                                  length,
-                                 f_yield,
+                                 f_y_nominal,
                                  fab_class,
                                  r_circle=None,
                                  p_class=None,
-                                 thickness=None
+                                 thickness=None,
+                                 f_y_real=None
                                  ):
         """
         Set a theoretical polygonal column.
@@ -64,7 +66,7 @@ class PolygonalColumn:
             Number of sides of the polygon cross-section.
         length : float
             Length of the column.
-        f_yield : float
+        f_y_nominal : float
             Yield stress.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN1993-1-6.
@@ -74,8 +76,13 @@ class PolygonalColumn:
             Plate classification, c/εt.
         thickness : float. optional
             Thickness of the profile.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
 
         """
+        if f_y_real is None:
+            f_y_real = f_y_nominal
+
         if [i is None for i in [r_circle, p_class, thickness]].count(True) > 1:
             print('Not enough info. Two out of the three optional arguments {r_circle, p_class, thickness}'
                   ' must be given.')
@@ -87,8 +94,9 @@ class PolygonalColumn:
                     r_circle,
                     thickness,
                     length,
-                    f_yield,
-                    fab_class
+                    f_y_nominal,
+                    fab_class,
+                    f_y_real=f_y_real
                 )
             elif r_circle is None:
                 self.theoretical_specimen = TheoreticalSpecimen.from_pclass_thickness_length(
@@ -96,8 +104,9 @@ class PolygonalColumn:
                     p_class,
                     thickness,
                     length,
-                    f_yield,
-                    fab_class
+                    f_y_nominal,
+                    fab_class,
+                    f_y_real=f_y_real
                 )
             else:
                 self.theoretical_specimen = TheoreticalSpecimen.from_pclass_radius_length(
@@ -105,11 +114,12 @@ class PolygonalColumn:
                     r_circle,
                     p_class,
                     length,
-                    f_yield,
-                    fab_class
+                    f_y_nominal,
+                    fab_class,
+                    f_y_real=f_y_real
                 )
 
-    def add_real_specimen(self, path):
+    def add_real_specimen(self, path, circ_tol=None):
         """
         Add data from scanning pickle file.
 
@@ -182,6 +192,10 @@ class PolygonalColumn:
         # Find a series of points for each edge based on the scanned surface.
         specimen.calc_real_edges(offset_to_midline=True, ref_lines=True)
 
+        # Find the real circumscribed circle from the average value of the theoretical edges and calculate the real
+        # equivalent circle.
+        specimen.calc_radii()
+
         # Calculate the initial imperfection displacements based on the edge and facet reference line and plane
         # accordingly.
         specimen.calc_edge_imperfection_displacements()
@@ -191,7 +205,7 @@ class PolygonalColumn:
         specimen.gather_max_imperfections()
 
         # Perform fft on edges
-        #specimen.fft_all_edges()
+        specimen.fft_all_edges()
 
         # Assign the constructed specimen to the object
         self.real_specimen = specimen
@@ -213,10 +227,11 @@ class PolygonalColumn:
             self.experiment_data = TestData.from_file(fh)
             self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
             self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
+            self.experiment_data.f_yield = self.theoretical_specimen.material.f_y_real
             self.experiment_data.process_data()
         else:
             self.experiment_data = TestData()
-        
+
         if max_load:
             self.max_load = max_load
 
@@ -268,9 +283,10 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             thickness,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3.
+            a_b=3.,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given geometric data.
@@ -292,22 +308,28 @@ class TheoreticalSpecimen(sd.Part):
             Thickness of the cross-section.
         length : float
             Length of the column.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
-            Corner bending radius over thickness ratio
+            Corner bending radius over thickness ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
 
+        if f_y_real is None:
+            f_y_real = f_y_nominal
+
         # Create material
-        material = sd.Material(210000., 0.3, f_y)
+        material = sd.Material(210000., 0.3, f_y_nominal, f_y_real)
 
         # Bending radius
         r_b = a_b * thickness
-        
+
         # Theta angle
         theta = np.pi / n_sides
 
@@ -322,19 +344,19 @@ class TheoreticalSpecimen(sd.Part):
 
         # Flat width of each facet (excluding the bended arcs)
         cccc = bbbb - 2 * b_c
-        
+
         # Cross sectional area
         area = 2 * np.pi * r_cyl * thickness
-        
+
         # Moment of inertia
         b_o = bbbb + thickness * np.tan(theta)
         alfa = thickness * np.tan(theta) / b_o
         moi = (n_sides * b_o ** 3 * thickness / 8) * (1 / 3 + 1 / (np.tan(theta) ** 2)) * (1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
-        
-        # Effective vross secion area
+
+        # Effective cross secion area
         corner_area = 2 * np.pi * r_b * thickness
-        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
-        
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y_nominal) + corner_area
+
         # Gather all cross sectional properties in an appropriate class
         cs_props = sd.CsProps(
             area=area,
@@ -350,7 +372,7 @@ class TheoreticalSpecimen(sd.Part):
         # cs_props = sd.CsProps.from_cs_sketch(cs_sketch)
         cs_props.max_dist = r_p
         cs_props.min_dist = np.sqrt(r_p ** 2 - (bbbb / 2) ** 2)
-        
+
         # Polar coordinate of the polygon vertices on the cross-section plane
         phii = []
         for i_index in range(n_sides):
@@ -385,7 +407,7 @@ class TheoreticalSpecimen(sd.Part):
             cs_props.moi_1,
             kapa_bc=1.,
             e_modulus=material.e_modulus,
-            f_yield=material.f_yield
+            f_yield=material.f_y_nominal
         )
 
         lmbda_z = lmbda_y
@@ -400,11 +422,11 @@ class TheoreticalSpecimen(sd.Part):
         n_cr_plate = cs_props.area * sigma_cr_plate
 
         # Axial compression resistance, Npl (acc. to EC3-1-5)
-        n_pl_rd = cs_props.a_eff * f_y
+        n_pl_rd = cs_props.a_eff * f_y_nominal
 
         # Buckling load
-        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_y, "d")
-        
+        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_y_nominal, "d")
+
         # Buckling stress (account for both flex and local)
         sigma_b_rd_plate = n_b_rd / cs_props.area
 
@@ -414,23 +436,23 @@ class TheoreticalSpecimen(sd.Part):
         # Length categorisation acc. to EC3-1-1, new draft proposal
         lenca = sd.shell_length_category(r_cyl, thickness, length)
         lenca_new = sd.shell_length_category_new(r_cyl, thickness, length)
-        
+
         # Critical stress acc. to shell theory.
         sigma_cr_shell = sd.sigma_x_rcr(thickness, r_cyl, length)
         sigma_cr_shell_new = sd.sigma_x_rcr_new(thickness, r_cyl, length)
-        
+
         # Critical load acc. to shell theory.
         n_cr_shell = sd.n_cr_shell(thickness, r_cyl, length)
         n_cr_shell_new = sd.n_cr_shell_new(thickness, r_cyl, length)
 
         # Compression stress of equivalent cylindrical shell (acc. to EC3-1-6)
-        sigma_b_rd_shell = sd.sigma_x_rd(thickness, r_cyl, length, f_y, fab_quality=fab_class)
-        sigma_b_rd_shell_new = sd.sigma_x_rd_new(thickness, r_cyl, length, f_y, fab_quality=fab_class)
-        
+        sigma_b_rd_shell = sd.sigma_x_rd(thickness, r_cyl, length, f_y_nominal, fab_quality=fab_class)
+        sigma_b_rd_shell_new = sd.sigma_x_rd_new(thickness, r_cyl, length, f_y_nominal, fab_quality=fab_class)
+
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
         n_b_rd_shell = cs_props.area * sigma_b_rd_shell
         n_b_rd_shell_new = cs_props.area * sigma_b_rd_shell_new
-        
+
         struct_props = sd.StructProps(
             t_classification=t_classification,
             p_classification=p_classification,
@@ -463,9 +485,10 @@ class TheoreticalSpecimen(sd.Part):
             p_classification,
             thickness,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3.
+            a_b=3.,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given plate slenderness, thickness and length.
@@ -482,18 +505,21 @@ class TheoreticalSpecimen(sd.Part):
             Thickness of the cross-section.
         length : float
             Length of the column.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y)
+        epsilon = np.sqrt(235. / f_y_nominal)
 
         # Radius of the equal perimeter cylinder
         #r_circle = (n_sides * thickness / np.pi) * ((p_classification * epsilon / 2) + arc_to_thickness * np.tan(np.pi / n_sides))
@@ -504,8 +530,9 @@ class TheoreticalSpecimen(sd.Part):
             r_circle,
             thickness,
             length,
-            f_y,
-            fab_class
+            f_y_nominal,
+            fab_class,
+            f_y_real=f_y_real
         )
 
     @classmethod
@@ -515,9 +542,10 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             p_classification,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3.
+            a_b=3.,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given equivalent cylinder radius, plate slenderness and length.
@@ -534,18 +562,21 @@ class TheoreticalSpecimen(sd.Part):
             Facet slenderness, c/(ε*t).
         length : float
             Length of the column.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y)
+        epsilon = np.sqrt(235. / f_y_nominal)
 
         # Calculate the thickness
         thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
@@ -555,10 +586,11 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             thickness,
             length,
-            f_y,
-            fab_class
+            f_y_nominal,
+            fab_class,
+            f_y_real=f_y_real
         )
-    
+
     @classmethod
     def from_pclass_area_length(
             cls,
@@ -566,9 +598,10 @@ class TheoreticalSpecimen(sd.Part):
             p_classification,
             area,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3
+            a_b=3,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given equivalent cylinder radius, plate slenderness and
@@ -586,32 +619,36 @@ class TheoreticalSpecimen(sd.Part):
             Cross-sectional area.
         length : float
             Length of the column.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y)
-        
+        epsilon = np.sqrt(235. / f_y_nominal)
+
         # Thickness
         thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
-        
+
         # Radius of equivalent cylinder
         r_cyl  = area / (2 * np.pi * thickness)
-        
+
         return cls.from_geometry(
             n_sides,
             r_cyl,
             thickness,
             length,
-            f_y,
-            fab_class
+            f_y_nominal,
+            fab_class,
+            f_y_real=f_y_real
         )
 
     @classmethod
@@ -621,9 +658,10 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             area,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3
+            a_b=3,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given equivalent cylinder radius, area and length.
@@ -640,15 +678,19 @@ class TheoreticalSpecimen(sd.Part):
             Cross-sectional area.
         length : float
             Length of the column.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
+
 
         thickness = area / (2 * np.pi *r_cyl)
 
@@ -657,9 +699,10 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             thickness,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=a_b
+            a_b=a_b,
+            f_y_real=f_y_real
         )
 
     @classmethod
@@ -669,9 +712,10 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             thickness,
             lambda_flex,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3.
+            a_b=3.,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given equivalent cylinder radius, thickness and flexural
@@ -689,16 +733,18 @@ class TheoreticalSpecimen(sd.Part):
             Thickness of the cross-section.
         lambda_flex : float
             Flexural slenderness.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
-
         # Bending radius
         r_b = a_b * thickness
 
@@ -724,21 +770,22 @@ class TheoreticalSpecimen(sd.Part):
                     1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
         # Effective cross secion area
         corner_area = 2 * np.pi * r_b * thickness
-        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y_nominal) + corner_area
 
         # Calculate column length for the given flexural slenderness.
-        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y))
+        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y_nominal))
 
         return cls.from_geometry(
             n_sides,
             r_cyl,
             thickness,
             length,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=a_b
+            a_b=a_b,
+            f_y_real=f_y_real
         )
-    
+
     @classmethod
     def from_pclass_radius_flexslend(
             cls,
@@ -746,9 +793,10 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             p_classification,
             lambda_flex,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3.
+            a_b=3.,
+            f_y_real=None
     ):
         """
         Create theoretical polygonal column object for given equivalent cylinder radius, plate classification and
@@ -766,18 +814,21 @@ class TheoreticalSpecimen(sd.Part):
             Facet slenderness, c/(ε*t).
         lambda_flex : float
             Flexural slenderness.
-        f_y : float
+        f_y_nominal : float
             Yield stress of the material.
         fab_class : {'fcA', 'fcB', 'fcC'}
             Fabrication class, as described in EN 1996-1-6. It is used in the calculation of the buckling resistance of
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y)
+        epsilon = np.sqrt(235. / f_y_nominal)
 
         # Calculate the thickness
         thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
@@ -787,11 +838,12 @@ class TheoreticalSpecimen(sd.Part):
             r_cyl,
             thickness,
             lambda_flex,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=a_b
+            a_b=a_b,
+            f_y_real=f_y_real
         )
-    
+
     @classmethod
     def from_pclass_area_flexslend(
             cls,
@@ -799,10 +851,12 @@ class TheoreticalSpecimen(sd.Part):
             p_classification,
             area,
             lambda_flex,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3.
+            a_b=3.,
+            f_y_real=None
     ):
+
         """
         Create theoretical polygonal column object for given plate classification, area and flexural slenderness.
 
@@ -825,27 +879,31 @@ class TheoreticalSpecimen(sd.Part):
             the cylinder of equal thickness-perimeter.
         a_b : float
             Thickness to bending radius ratio.
+        f_y_real : float, optional
+            Measured yield stress. Default uses the nominal value.
+
 
         """
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y)
+        epsilon = np.sqrt(235. / f_y_nominal)
 
         # Thickness
         thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
 
         # Radius of equivalent cylinder
         r_cyl = area / (2 * np.pi * thickness)
-        
+
         return cls.from_radius_thickness_flexslend(
             n_sides,
             r_cyl,
             thickness,
             lambda_flex,
-            f_y,
+            f_y_nominal,
             fab_class,
-            a_b=3
+            a_b=3,
+            f_y_real=f_y_real
         )
-    
+
 
 class RealSpecimen:
     """
@@ -869,6 +927,9 @@ class RealSpecimen:
         self.max_edge_imp = None
         self.max_face_imp = None
         self.u_edges = None
+        self.u_edges_blackman = None
+        self.r_circle = None
+        self.r_bend = None
 
     def centre_line_from_pickle(self, fh):
         """
@@ -1028,6 +1089,41 @@ class RealSpecimen:
                 print('Calculating reference line by fitting on the edge points, edge:    {}'.format(i + 1))
                 x.calc_ref_line()
 
+    def calc_radii(self):
+        """Calculate the radius of the equivalent cylinder and the bending radius of the edges"""
+
+        # First, calculate the bending radius
+        n_sides = len(self.edges)
+        r_bend = 0
+        counter = 0
+        for j in self.edges:
+            if j is not NotImplemented:
+                sum = 0
+                counter += 1
+                for i in j.circles:
+                    sum = sum + i.radius
+
+                r_bend = r_bend + sum / len(j.circles)
+
+        r_bend = r_bend / counter
+
+        # Then calculate the radius of the circumscribed circle through the theoretical edges.
+        r_circum = 0
+        counter = 0
+        for i in self.edges:
+            if i is not NotImplemented:
+                counter += 1
+                r_crnt_down = (i.theoretical_edge.xy_for_z(0)[0] ** 2 + i.theoretical_edge.xy_for_z(0)[1] ** 2)**0.5
+                r_crnt_up = (i.theoretical_edge.xy_for_z(700)[0] ** 2 + i.theoretical_edge.xy_for_z(700)[1] ** 2)**0.5
+                r_circum = r_circum + r_crnt_down + r_crnt_up
+
+        r_circum = r_circum / (2 * counter)
+        theta = np.pi/n_sides
+        r_c_measured = (n_sides * (r_circum * np.sin(theta) - r_bend*np.tan(theta))/np.pi) + r_bend
+
+        self.r_circle = r_c_measured
+        self.r_bend = r_bend
+
     def calc_edge_imperfection_displacements(self):
         """
         Calculate the initial imperfection displacements of the edges.
@@ -1080,13 +1176,15 @@ class RealSpecimen:
             print('Calculating initial imperfection displacements, facet:    {}'.format(i + 1))
             x.calc_face2ref_dist()
 
-    # def fft_all_edges(self):
-    #     edges_u_max = []
-    #     for i in self.edges:
-    #         i.fft()
-    #         edges_u_max.append(i.u_max)
-    #
-    #     self.u_edges = edges_u_max
+    def fft_all_edges(self):
+        self.u_edges = []
+        self.u_edges_blackman = []
+        for i, x in enumerate(self.edges):
+            if x.edge2ref_dist is not NotImplemented:
+                print("Performing Fourier analysis on imperfections of edge:    {}.".format(i + 1))
+                x.fft()
+                self.u_edges.append(x.fft_results['amps/width'].max())
+                self.u_edges_blackman.append(x.fft_results['amps_black/width'].max())
 
     def plot_all(self):
         """
@@ -1097,14 +1195,15 @@ class RealSpecimen:
 
         """
         fig1 = plt.figure()
-        Axes3D(fig1)
+        ax = fig1.gca(projection='3d')
+        # Axes3D(fig1)
         for i in range(-len(self.sides), 0):
             self.sides[i].scatter_face(reduced=0.01, fig=fig1)
         for i in self.edges:
             max_z = max([i.coords[2] for i in i.points_wcsys.swarm])
             min_z = min([i.coords[2] for i in i.points_wcsys.swarm])
 
-            i.theoretical_edge.plot_line(fig=fig1, ends=[min_z, max_z])
+            i.theoretical_edge.plot_line(ax=ax, ends=[min_z, max_z])
 
     def gather_max_imperfections(self):
         """
@@ -1177,13 +1276,14 @@ class TestData(lt.Experiment):
     Laboratory test of polygonal specimen.
 
     """
-    def __init__(self, name=None, channels=None, specimen_length=None, cs_area=None, max_load=None):
+    def __init__(self, name=None, channels=None, specimen_length=None, cs_area=None, max_load=None, f_yield=None):
         self.specimen_length = specimen_length
         self.cs_area = cs_area
         self.max_load = max_load
+        self.f_yield = f_yield
 
         super().__init__(name=name, channels=channels)
-        
+
         if channels:
             facets = [int(i[:2]) for i in self.channels.keys() if len(i) == 3 and i[2] == "F"]
             edges = [int(i[:2]) for i in self.channels.keys() if len(i) == 3 and i[2] == "C"]
@@ -1206,39 +1306,6 @@ class TestData(lt.Experiment):
         self.calc_avg_strain()
         self.calc_disp()
         self.calc_avg_stress()
-
-    #TODO: fix the add_Eccentricity method
-    # def add_eccentricity(self, axis, column, moi, min_dist, thickness, young):
-    #     """
-    #     Calculate eccentricity.
-    #
-    #     Adds a column in the data dictionary for the eccentricity of the load application on a given axis based on
-    #     two opposite strain measurements.
-    #
-    #     Parameters
-    #     ----------
-    #     axis :
-    #     column :
-    #     moi :
-    #     mon_dist :
-    #     thickness :
-    #     young :
-    #
-    #     """
-    #
-    #     self.channels['e_' + axis] = {}
-    #     self.channels['e_' + axis]["data"] = []
-    #     self.channels['e_' + axis]["units"] = "mm"
-    #     for load, strain1, strain2 in zip(self.channels['Load']["data"],
-    #                                       self.channels[column[0]]["data"],
-    #                                       self.channels[column[1]]["data"]):
-    #         self.channels['e_' + axis]["data"].append(self.eccentricity_from_strain(
-    #             load * 1000,
-    #             [strain1 * 1e-6, strain2 * 1e-6],
-    #             moi,
-    #             min_dist + thickness / 2,
-    #             young)
-    #         )
 
     def offset_stroke(self, offset=None):
         """
@@ -1269,7 +1336,18 @@ class TestData(lt.Experiment):
             self.channels["disp_from_lvdt"]["data"] = self.channels["disp_from_lvdt"]["data"] + \
                                                  self.channels["LVDT{}".format(i + 1)]["data"]
         self.channels["disp_from_lvdt"]["data"] = self.channels["disp_from_lvdt"]["data"] / 4.
-        
+
+    def calc_avg_stress(self):
+        """Calculate the average stress from the measured reaction force and the cross-section area."""
+        # Create new data channel.
+        self.add_new_channel_zeros('avg_stress', "Mpa")
+        self.channels['avg_stress']["data"] = self.channels['Load']["data"] * 1e3 / self.cs_area
+
+        if self.f_yield is not None:
+            # Add new channel for the nondimensional sigma/fy
+            self.add_new_channel_zeros('avg_stress_ov_fy', 'MPa')
+            self.channels['avg_stress_ov_fy']["data"] = self.channels['avg_stress']["data"] / self.f_yield
+
     def calc_avg_strain(self):
         """Calculate the average strain from all strain gauges."""
         # Create new data channel.
@@ -1283,7 +1361,7 @@ class TestData(lt.Experiment):
                     i += 1
 
         self.channels['avg_strain']["data"] = self.channels['avg_strain']["data"] / (i * 1e6)
-        
+
     def plot_load_strain_gauges(self):
         """Plot all the stain gauge channels against the load"""
 
@@ -1293,7 +1371,7 @@ class TestData(lt.Experiment):
         fig2 = plt.figure()
         plt.plot()
         ax2 = fig2.axes[0]
-        
+
         # Collect all strain gauge records.
         for key in self.channels.keys():
             if len(key) > 2:
@@ -1301,31 +1379,44 @@ class TestData(lt.Experiment):
                     self.plot2d(key, "Load", scale=(-1, -1), ax=ax1)
                 elif key[:2].isdigit() and (key[2] is 'C'):
                     self.plot2d(key, "Load", scale=(-1, -1), ax=ax2)
-                    
-    def plot_strain_gage_pair(self, facet_nr, ax=None):
-        """Plot a pair of face-edge strain gauges against the load"""
-        
-        if ax is None:
-            fig = plt.figure()
-            plt.plot()
-            ax = fig.axes[0]
-            self.plot2d("{:02d}C".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
-            self.plot2d("{:02d}F".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
-            ax.grid()
-            return ax
-        elif not isinstance(ax, type(plt.axes())):
-            print('Unexpected input type. Input argument `ax` must be of type `matplotlib.pyplot.axes()`')
-            return NotImplemented
-        else:
-            self.plot2d("{:02d}C".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
-            self.plot2d("{:02d}F".format(facet_nr),"Load", scale=(-1, -1), ax=ax)
-            return ax
 
-    def calc_avg_stress(self):
-        """Calculate the average stress from the measured reaction force and the cross-section area."""
-        # Create new data channel.
-        self.add_new_channel_zeros('avg_stress', "Mpa")
-        self.channels['avg_stress']["data"] = self.channels['Load']["data"] * 1e3 / self.cs_area
+    def plot_avg_strain_vs_load(self, ax=None, **kargs):
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        self.plot2d("avg_strain", "Load", ax=ax, color="black", axlabels=False, **kargs)
+
+    def plot_strain_gage_pair(self, facet_nr, ax=None, **kargs):
+        """Plot a pair of face-edge strain gauges against the load"""
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        self.plot2d(
+            "{:02d}C".format(facet_nr),
+            "Load", scale=(-1e-04, -1),
+            ax=ax,
+            axlabels=False,
+            linestyle="dashed",
+            color="black",
+            **kargs
+        )
+        self.plot2d(
+            "{:02d}F".format(facet_nr),
+            "Load",
+            scale=(-1e-04, -1),
+            ax=ax,
+            axlabels=False,
+            color="black",
+            **kargs
+        )
+
+        handles, labels = ax.get_legend_handles_labels()
+        labels = ["{:02d}C".format(facet_nr), "{:02d}F".format(facet_nr)]
+        ax.legend(handles, labels)
+
+        ax.grid()
+        return ax
 
     def plot_stroke_load(self, ax=None):
         """
@@ -1358,7 +1449,7 @@ class TestData(lt.Experiment):
             self.plot2d('Stroke', 'Load', ax=ax)
             return ax
 
-    def plot_strain_stress(self, ax=None):
+    def plot_avg_strain_stress(self, ax=None, **kargs):
         """
         Plot average strain vs average stress.
 
@@ -1369,27 +1460,18 @@ class TestData(lt.Experiment):
 
         """
         if ax is None:
-            fig = plt.figure()
-            plt.plot()
-            ax = fig.axes[0]
-            self.plot2d('avg_strain', 'avg_stress', ax=ax)
-            ax.invert_xaxis()
-            ax.invert_yaxis()
-            handles, labels = ax.get_legend_handles_labels()
-            ax.legend(handles, labels)
-            ax.set_xlabel('Strain, ε')
-            ax.set_ylabel('Stress, σ [Mpa]')
-            ax.grid()
+            fig, ax = plt.subplots()
 
-            return ax
-        elif not isinstance(ax, type(plt.axes())):
-            print('Unexpected input type. Input argument `ax` must be of type `matplotlib.pyplot.axes()`')
-            return NotImplemented
-        else:
-            self.plot2d('avg_strain', 'avg_stress', ax=ax)
-            handles, labels = ax.get_legend_handles_labels()
-            ax.legend(handles, labels)
-            return ax
+        self.plot2d('avg_strain', 'avg_stress', ax=ax, color="black", **kargs)
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels)
+        # ax.set_xlabel('Strain, $\\varepsilon$')
+        # ax.set_ylabel('Stress, $\\sigma$ [Mpa]')
+        ax.grid()
+
+        return ax
 
     def plot_disp_load(self, ax=None):
         """
@@ -1424,30 +1506,6 @@ class TestData(lt.Experiment):
             handles, labels = ax.get_legend_handles_labels()
             ax.legend(handles[::-1], labels[::-1])
             return ax
-
-    #TODO: fix the eccentricity method.
-    # @staticmethod
-    # def eccentricity_from_strain(load, strain, moi, dist, young=None):
-    #     """
-    #     Load eccentricity based on strain pairs.
-    #
-    #     Calculate the eccentricity of an axial load to the neutral axis of a specimen for which pairs of strains are
-    #     monitored with strain gauges. The eccentricity is calculated on one axis and requires the moment of inertia
-    #     around it and a pair of strains on tow positions symmetric to the neutral axis. Elastic behaviour is assumed.
-    #
-    #     """
-    #
-    #     # Default values.
-    #     if young is None:
-    #         young = 210000.
-    #     else:
-    #         young = float(young)
-    #
-    #     # Eccentricity.
-    #     ecc = (strain[0] - strain[1]) * young * moi / (2 * load * dist)
-    #
-    #     # Return
-    #     return ecc
 
 
 def semi_closed_polygon(n_sides, radius, t, tg, rbend, nbend, l_lip):
@@ -1595,11 +1653,11 @@ def semi_closed_polygon(n_sides, radius, t, tg, rbend, nbend, l_lip):
 def main(
          directory=None,
          nominal=True,
-         add_real_specimens=True,
-         add_experimental_data=True,
-         add_numerical_data=True,
+         add_real_specimens=False,
+         add_experimental_data=False,
+         add_numerical_data=False,
          make_plots=False,
-         export=False,
+         export=False
          ):
 
     if directory is None:
@@ -1608,35 +1666,52 @@ def main(
     if export is True:
         export= directory + 'polygonal.pkl'
 
-    # Create a polygonal column object.
-    if nominal:
-        print('Using nominal values for thickness and yield stress.')
-        f_yield = 700.
-        thickness1 = 3.
-        thickness2 = 2.
-    else:
-        print('Using measured values for thickness and yield stress.')
-        #TODO: Calculate the field stress accurately from the coupons using the 0.002 rule.
-        f_yield = 715.
-        thickness1 = 3.0385
-        thickness2 = 1.886
-
+    n_sides = (16, 16, 16, 20, 20, 20, 24, 24, 24)
+    p_class = (30, 40, 50, 30, 40, 50, 30, 40, 50)
+    thickness_nom = (3., 3., 3., 3., 3., 2., 3., 2., 2.)
+    thickness_real = (3.0385, 3.0385, 3.0385, 3.0385, 3.0385, 1.886, 3.0385, 1.886, 1.886)
     length = 700.
+    f_y_nominal = 700
+    f_y_real = (802., 802., 802., 802., 802., 729., 802., 729., 729.)
     fab_class = 'fcA'
+    r_c_real = (
+        132.32386186806949,
+        177.00127157377938,
+        221.84527884207978,
+        165.64692217690342,
+        221.93380646241812,
+        184.58526719537866,
+        198.8043467128564,
+        177.0305835313189,
+        221.8235772267992
+    )
 
     print('Creating the polygonal column objects.')
     cases = [PolygonalColumn(name='specimen{}'.format(i + 1)) for i in range(9)]
 
     print('Adding theoretical specimens with calculations to the polygonal columns')
-    cases[0].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=thickness1, p_class=30.)
-    cases[1].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=thickness1, p_class=40.)
-    cases[2].set_theoretical_specimen(16, length, f_yield, fab_class, thickness=thickness1, p_class=50.)
-    cases[3].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=thickness1, p_class=30.)
-    cases[4].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=thickness1, p_class=40.)
-    cases[5].set_theoretical_specimen(20, length, f_yield, fab_class, thickness=thickness2, p_class=50.)
-    cases[6].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=thickness1, p_class=30.)
-    cases[7].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=thickness2, p_class=40.)
-    cases[8].set_theoretical_specimen(24, length, f_yield, fab_class, thickness=thickness2, p_class=50.)
+    if nominal:
+        for i in range(9):
+            cases[i].set_theoretical_specimen(
+                n_sides[i],
+                length,
+                f_y_nominal,
+                fab_class,
+                thickness=thickness_nom[i],
+                p_class=p_class[i],
+                f_y_real=f_y_real[i]
+            )
+    else:
+        for i in range(9):
+            cases[i].set_theoretical_specimen(
+                n_sides[i],
+                length,
+                f_y_nominal,
+                fab_class,
+                r_circle=r_c_real[i],
+                thickness=thickness_real[i],
+                f_y_real=f_y_real[i]
+            )
 
     if add_real_specimens:
         print('Adding real specimens with the 3d scanned data to the polygonal columns.')
@@ -1666,17 +1741,17 @@ def main(
     if make_plots:
         print('Producing plots.')
         # Strain-stress curves
-        ax = cases[0].experiment_data.plot_strain_stress()
-        cases[1].experiment_data.plot_strain_stress(ax=ax)
-        cases[2].experiment_data.plot_strain_stress(ax=ax)
+        ax = cases[0].experiment_data.plot_avg_strain_stress()
+        cases[1].experiment_data.plot_avg_strain_stress(ax=ax)
+        cases[2].experiment_data.plot_avg_strain_stress(ax=ax)
 
-        ax = cases[3].experiment_data.plot_strain_stress()
-        cases[4].experiment_data.plot_strain_stress(ax=ax)
-        cases[5].experiment_data.plot_strain_stress(ax=ax)
+        ax = cases[3].experiment_data.plot_avg_strain_stress()
+        cases[4].experiment_data.plot_avg_strain_stress(ax=ax)
+        cases[5].experiment_data.plot_avg_strain_stress(ax=ax)
 
-        ax = cases[6].experiment_data.plot_strain_stress()
-        cases[7].experiment_data.plot_strain_stress(ax=ax)
-        cases[8].experiment_data.plot_strain_stress(ax=ax)
+        ax = cases[6].experiment_data.plot_avg_strain_stress()
+        cases[7].experiment_data.plot_avg_strain_stress(ax=ax)
+        cases[8].experiment_data.plot_avg_strain_stress(ax=ax)
 
         # Displacement-load
 

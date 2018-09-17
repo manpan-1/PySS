@@ -32,7 +32,16 @@ class Experiment:
             self.channels = channels
         self.name = name
 
-    def plot2d(self, x_data, y_data, ax=None, scale=None, **kargs):
+    def plot2d(
+            self,
+            x_data,
+            y_data,
+            ax=None,
+            scale=None,
+            axlabels=True,
+            reduced=1,
+            **kargs
+    ):
         """
         Plot two recorded channels against each other.
 
@@ -46,30 +55,33 @@ class Experiment:
             The axis to be used for plotting. By default, new figure and axis are created.
         scale : list or tuple of 2 numbers
             Scaling factors for `x` and `y` axis
+        axlabels : bool, optional
+            Write labels for x and y axes based on the channel name. TeX is used so certain names may cause problems in
+            which case the used might want to deactivate plotting axes labels. Default is True.
+        reduced : float, optional
+            Plot a subset of points, the size of which is given as a fraction of the full set. Default value is 1.0
+            which implies all points are plotted.
 
         """
+        #plt.rc('text', usetex=False)
 
         if ax is None:
-            fig = plt.figure()
-            plt.plot()
-            ax = fig.axes[0]
-        elif not isinstance(ax, type(plt.axes())):
-            print('Unexpected input type. Input argument `ax` must be of type `matplotlib.pyplot.axes()`')
-            return NotImplemented
+            fig, ax = plt.subplots()
         
         if scale is None:
-            scale=(1, 1)
+            scale = (1, 1)
 
         ax.plot(
-            self.channels[x_data]["data"]*scale[0],
-            self.channels[y_data]["data"]*scale[1],
+            self.channels[x_data]["data"][0::int(1/reduced)]*scale[0],
+            self.channels[y_data]["data"][0::int(1/reduced)]*scale[1],
             label=self.name,
             **kargs
         )
 
-        plt.xlabel(x_data + ", [" + self.channels[x_data]["units"] + "]")
-        plt.ylabel(y_data + ", [" + self.channels[y_data]["units"] + "]")
-        plt.title(self.name)
+        if axlabels:
+            plt.xlabel(x_data + ", [" + self.channels[x_data]["units"] + "]")
+            plt.ylabel(y_data + ", [" + self.channels[y_data]["units"] + "]")
+            plt.title(self.name)
 
         return ax
 

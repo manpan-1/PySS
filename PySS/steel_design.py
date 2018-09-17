@@ -249,12 +249,13 @@ class Material:
 
     """
 
-    def __init__(self, e_modulus, poisson, f_yield, plasticity=None):
+    def __init__(self, e_modulus, poisson, f_y_nominal, f_y_real=None, plasticity=None):
         self.e_modulus = e_modulus
         self.poisson = poisson
-        self.f_yield = f_yield
+        self.f_y_nominal = f_y_nominal
         self.plasticity = plasticity
-        self.epsilon = np.sqrt(235. / f_yield)
+        self.epsilon = np.sqrt(235. / f_y_nominal)
+        self.f_y_real = f_y_real
 
     @staticmethod
     def plastic_table(nominal=None):
@@ -606,7 +607,9 @@ def plate_class_new(
 def sigma_cr_plate(
         thickness,
         width,
-        psi=None
+        psi=None,
+        young=210000,
+        poisson=0.3
 ):
     # Docstring
     """
@@ -624,6 +627,10 @@ def sigma_cr_plate(
         [_] Ratio of the min over max stress for a linear distribution,
         (sigma_min / sigma_max)
         Default = 1, which implies a uniform distribution
+    young : float, optional
+        [MPa] Young's modulus of elasticity. Default value is 210000
+    poisson : float, optional
+        [_] Poisson ratio, default value is 0.3
 
     Returns
     -------
@@ -649,10 +656,15 @@ def sigma_cr_plate(
         psi = float(psi)
 
     # Calculate kapa_sigma
-    k_sigma = 8.2 / (1.05 + psi)
+    if psi>0:
+        k_sigma = 8.2 / (1.05 + psi)
+    elif 0 >= psi > -1:
+        k_sigma = 7.81 - 6.29*psi + 9.78*psi**2
+    else:
+        k_sigma = 5.98*(1 - psi)**2
 
     # Elastic critical stress acc. to EN3-1-5 Annex A
-    sigma_e = 190000 * (thickness / width) ** 2
+    sigma_e = (np.pi**2 * young * thickness) / (12*(1 - poisson**2) * width**2)
     sigma_cr = sigma_e * k_sigma
 
     # Return value
@@ -1397,7 +1409,7 @@ def sigma_x_rd(
         fab_quality = 'fcA'
 
     if gamma_m1 is None:
-        # The default value 1.2 is as the lowest recommended on EC3-1-6 8.5.2(10) NOTE.
+        # The default value 1.1 is as the lowest recommended on EC3-1-6 8.5.2(1) NOTE.
         gamma_m1 = 1.1
     else:
         gamma_m1 = float(gamma_m1)

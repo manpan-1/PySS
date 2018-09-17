@@ -435,7 +435,7 @@ class Line3D:
         y_1 = self.parallel[1] * t + self.point.coords[1]
         return np.r_[x_1, y_1, z_1]
 
-    def plot_line(self, ends=None, fig=None):
+    def plot_line(self, ends=None, ax=None):
         """
         Line segment plotter.
 
@@ -461,12 +461,11 @@ class Line3D:
         y = self.point.coords[1] + self.parallel[1] * np.r_[ends]
         z = self.point.coords[2] + self.parallel[2] * np.r_[ends]
 
-        if fig is None:
+        if ax is None:
             fig = plt.figure()
             ax = fig.gca(projection='3d')
-        else:
-            ax = fig.get_axes()[0]
-        ax.plot(x, y, z)
+
+        ax.plot(x, y, z, color="black")
 
         plt.show()
 
@@ -1117,7 +1116,7 @@ class Points3D:
             z.append(self.swarm[i].coords[2])
 
         # Plot the data
-        ax.scatter(x, y, z, c="black", s=1)
+        ax.scatter(x, y, z, c="black", s=0.5)
 
     def get_xs(self):
         """Return an array of the `x` coordinates."""

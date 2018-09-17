@@ -14,6 +14,14 @@ matplotlib.rcParams.update({'font.size': 12})
 matplotlib.rcParams.update({'axes.titlesize': 12})
 plt = matplotlib.pyplot
 plt.rc('text', usetex=True)
+#
+# # Latex setup for plotting with titles and labels.
+# params = {'text.latex.preamble': [r'\usepackage{amsmath}']}
+# plt.rcParams.update(params)
+#
+# params = {'text.latex.preamble': [r'\usepackage{xfrac}']}
+# plt.rcParams.update(params)
+
 
 
 class FactDB:
@@ -167,7 +175,6 @@ class FactDB:
 
         Parameters
         ----------
-
         :param slice_at:
         :param subplots_of:
         :param response:
@@ -262,8 +269,8 @@ class FactDB:
             )
 
         for n, i in enumerate(fig.axes):
-            i.set_xticks([10, 20, 30, 40])
-            i.set_yticks([30, 40, 50, 60])
+            # i.set_xticks([10, 20, 30, 40])
+            # i.set_yticks([30, 40, 50, 60])
             if not n/x_subplots == int(n/x_subplots):
                 i.set_yticklabels([])
                 i.set_ylabel("")
@@ -284,7 +291,7 @@ class FactDB:
 
         return fig
 
-    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None, colorbar=False, **kwargs):
+    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None, colorbar=False, title=None, **kwargs):
         """
         Contour plot.
 
@@ -315,6 +322,9 @@ class FactDB:
             else:
                 ax = fig.add_subplot(sbplt)
 
+        if title is None:
+            title = True
+
         axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
         if transpose:
@@ -337,17 +347,18 @@ class FactDB:
             cb_ax = fig.add_axes([0.86, 0.18, 0.02, 0.67])
             plt.colorbar(contour2, cax=cb_ax)
 
-        ttl = [i for i in zip(slice_at.keys(), ttl_values)]
-        ttl = ", ".join(["=".join(i) for i in ttl])
-        if ttl:
-            ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        if title:
+            ttl = [i for i in zip(slice_at.keys(), ttl_values)]
+            ttl = ", ".join(["=".join(i) for i in ttl])
+            if ttl:
+                ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
         ax.set_xlabel("$" + x_label + "$")
         ax.set_ylabel("$" + y_label + "$")
         ax.grid()
 
         return fig
 
-    def surf_3d(self, slice_at, response, transpose=False, fig=None, sbplt=None):
+    def surf_3d(self, slice_at, response, transpose=False, fig=None, sbplt=None, title=None, scale=None):
         """
         Surface plot.
 
@@ -363,6 +374,8 @@ class FactDB:
             Figure object to plot on. New figure created by default
         sbplt : int, optional
             Subplot description number. Default is 111, which implies a figure with a single plot on.
+        scale : (float, float, float), optional
+            Scale factors for the three axes, `x y z`
 
         """
         # Convenient window dimensions
@@ -386,6 +399,12 @@ class FactDB:
             else:
                 ax = fig.add_subplot(sbplt, projection='3d')
 
+        if scale is None:
+            scale = (1, 1, 1)
+
+        if title is None:
+            title = True
+
         axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
         if transpose:
@@ -399,11 +418,18 @@ class FactDB:
 
         ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
 
-        sbplt = ax.plot_surface(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno)
+        sbplt = ax.plot_surface(
+            X.astype(np.float) * scale[0],
+            Y.astype(np.float) * scale[1],
+            Z.T * scale[2],
+            cmap=plt.cm.inferno
+        )
         # plt.clabel(sbplt, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]
         ttl = ", ".join(["=".join(i) for i in ttl])
-        ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        if title:
+            ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+
         ax.set_xlabel("$" + x_label + "$")
         ax.set_ylabel("$" + y_label + "$")
 
@@ -422,7 +448,9 @@ class FactDB:
         """
         if fig is None:
             fig = plt.gcf()
-        fig.axes[1].view_init(azim=fig.axes[0].azim, elev=fig.axes[0].elev)
+
+        for i in fig.axes:
+            i.view_init(azim=fig.axes[0].azim, elev=fig.axes[0].elev)
 
 
 def dummyfunc(*args, **kargs):
