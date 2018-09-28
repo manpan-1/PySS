@@ -641,7 +641,7 @@ class Line2D:
 
         return (-self.line_coeff[0] * x - self.line_coeff[2]) / self.line_coeff[1]
 
-    def plot_line(self, ends=None, fig=None):
+    def plot_line(self, ends=None, fig=None, ax=None, **kwargs):
         # TODO: Check if the method works fine and revise the docstring.
         """
         Line segment plotter.
@@ -655,6 +655,9 @@ class Line2D:
             is [-1, 1]
         fig : Object of class matplotlib.figure.Figure, optional
             The figure window to be used for plotting. By default, a new window is created.
+        ax : Axis object
+            Axis to plot on. By default, the first axis of the given figure is used.
+        **kwargs are forwarded to
 
         Returns
         -------
@@ -667,13 +670,14 @@ class Line2D:
         x = self.point[0] + self.parallel[0] * np.r_[ends]
         y = self.point[1] + self.parallel[1] * np.r_[ends]
 
-        if fig is None:
-            fig = plt.figure()
-            ax = fig.gca()
-        else:
-            ax = fig.get_axes()[0]
-        ax.plot(x, y, label='parametric curve')
-        ax.legend()
+        if ax is None:
+            if fig is None:
+                fig = plt.figure()
+                ax = fig.gca()
+            else:
+                ax = fig.gca()
+
+        ax.plot(x, y, **kwargs)
 
         plt.show()
 

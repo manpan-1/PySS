@@ -9,9 +9,11 @@ import numpy as np
 import matplotlib
 from collections import namedtuple
 from mpl_toolkits.mplot3d import Axes3D
+from labellines import labelLine, labelLines
+# from cycler import cycler
 
-matplotlib.rcParams.update({'font.size': 12})
-matplotlib.rcParams.update({'axes.titlesize': 12})
+matplotlib.rcParams.update({'font.size': 11})
+matplotlib.rcParams.update({'axes.titlesize': 11})
 plt = matplotlib.pyplot
 plt.rc('text', usetex=True)
 #
@@ -169,7 +171,7 @@ class FactDB:
         return (self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
     #TODO: docstring
-    def plt_contours(self, slice_at, response, subplots_of=None, colorbar=True, transpose_sbplts=False):
+    def plt_contours(self, slice_at, response, subplots_of=None, colorbar=True, transpose_sbplts=False, colormap=None):
         """
         Figure with multiple subplots.
 
@@ -195,6 +197,9 @@ class FactDB:
             y_subplots = int(subplots/x_subplots)
             if transpose_sbplts:
                 x_subplots, y_subplots = y_subplots, x_subplots
+
+        if colormap is None:
+            colormap = plt.cm.inferno
 
         sbplt = str(y_subplots) + str(x_subplots)
 
@@ -265,7 +270,8 @@ class FactDB:
                 fig=fig,
                 sbplt=int(sbplt + str(crrnt_sbplt + 1)),
                 vmin=vmin,
-                vmax=vmax
+                vmax=vmax,
+                colormap=colormap
             )
 
         for n, i in enumerate(fig.axes):
@@ -278,7 +284,7 @@ class FactDB:
                 i.set_xlabel("")
 
         if colorbar:
-            m = plt.cm.ScalarMappable(cmap=plt.cm.inferno)
+            m = plt.cm.ScalarMappable(cmap=colormap)
             m.set_array(np.linspace(vmin, vmax, num=5))
             cb_ax = fig.add_axes([
                 1 - relative_x_padding + x_spacing/x_inches_fig,
@@ -291,7 +297,18 @@ class FactDB:
 
         return fig
 
-    def contour_2d(self, slice_at, response, transpose=False, fig=None, sbplt=None, colorbar=False, title=None, **kwargs):
+    def contour_2d(
+            self,
+            slice_at,
+            response,
+            transpose=False,
+            fig=None,
+            sbplt=None,
+            colorbar=False,
+            title=None,
+            colormap=None,
+            **kwargs
+    ):
         """
         Contour plot.
 
@@ -336,12 +353,15 @@ class FactDB:
             Z = self.get_slice(slice_at, response)
             x_label, y_label = axes[0], axes[1]
 
+        if colormap is None:
+            colormap = plt.cm.inferno
+
         ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
 
         # levels = np.arange(0, 2., 0.025)
-        # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=plt.cm.inferno)
+        # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=colormap)
         contour1 = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r, linewidths=1, **kwargs)
-        contour2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.inferno, **kwargs)
+        contour2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=colormap, **kwargs)
         plt.clabel(contour1, inline=1)
         if colorbar:
             cb_ax = fig.add_axes([0.86, 0.18, 0.02, 0.67])
@@ -358,7 +378,178 @@ class FactDB:
 
         return fig
 
-    def surf_3d(self, slice_at, response, transpose=False, fig=None, sbplt=None, title=None, scale=None):
+    def diagram_plot_new(
+            self,
+            slice_at,
+            response,
+            transpose=False,
+            ax=None,
+            title=None,
+            color=None,
+            legend=None,
+            labellines=None,
+            **kwargs
+    ):
+        """
+        Contour plot.
+
+        Parameters
+        ----------
+        slice_at : dict
+            Indices of the dimension values for which the array is sliced.
+        response : str
+            Response to be plotted.
+        transpose : bool, optional
+            Reverse the x-y plotted axes.
+        fig : :obj:`matplotlib.figure`, optional
+            Figure object to plot on. New figure created by default
+        sbplt : int, optional
+            Subplot description number. Default is 111, which implies a figure with a single plot on.
+
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        if title is None:
+            title = True
+
+        axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
+
+        if transpose:
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[1])], self.dimensions[self.get_idx(axes[0])])
+            Z = self.get_slice(slice_at, response).T
+            x_label, y_label = axes[1], axes[0]
+        else:
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[0])], self.dimensions[self.get_idx(axes[1])])
+            Z = self.get_slice(slice_at, response)
+            x_label, y_label = axes[0], axes[1]
+
+        if color is None:
+            color = "black"
+
+        if legend is None:
+            legend = False
+
+        if labellines is None:
+            labellines = False
+
+        ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
+
+        # levels = np.arange(0, 2., 0.025)
+        # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=colormap)
+        legends = []
+
+        for n, j in enumerate(Y[:, 0]):
+            ax.plot(np.asfarray(X[0, :], float), Z.T[n, :], color=color, label=j, **kwargs)
+            legends.append("{} = {}".format(y_label, j))
+
+        if labellines:
+            labelLines(ax.get_lines(), zorder=2.5)
+
+        plt.show()
+
+        if legend:
+            plt.legend(legends)
+
+        if title:
+            ttl = [i for i in zip(slice_at.keys(), ttl_values)]
+            ttl = ", ".join(["=".join(i) for i in ttl])
+            if ttl:
+                ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        ax.set_xlabel("$" + x_label + "$")
+        ax.set_ylabel("$" + response + "$")
+        ax.grid()
+
+        return ax
+
+    def diagram_plot(
+            self,
+            slice_at,
+            response,
+            transpose=False,
+            fig=None,
+            sbplt=None,
+            title=None,
+            color=None,
+            legend=None,
+            **kwargs
+    ):
+        """
+        Contour plot.
+
+        Parameters
+        ----------
+        slice_at : dict
+            Indices of the dimension values for which the array is sliced.
+        response : str
+            Response to be plotted.
+        transpose : bool, optional
+            Reverse the x-y plotted axes.
+        fig : :obj:`matplotlib.figure`, optional
+            Figure object to plot on. New figure created by default
+        sbplt : int, optional
+            Subplot description number. Default is 111, which implies a figure with a single plot on.
+
+        """
+
+
+        if fig is None:
+            fig = plt.figure()
+
+            if sbplt is None:
+                ax = fig.add_subplot(111)
+            else:
+                ax = fig.add_subplot(sbplt)
+        else:
+            if sbplt is None:
+                ax = fig.add_subplot(111)
+            else:
+                ax = fig.add_subplot(sbplt)
+
+        if title is None:
+            title = True
+
+        axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
+
+        if transpose:
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[1])], self.dimensions[self.get_idx(axes[0])])
+            Z = self.get_slice(slice_at, response).T
+            x_label, y_label = axes[1], axes[0]
+        else:
+            X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[0])], self.dimensions[self.get_idx(axes[1])])
+            Z = self.get_slice(slice_at, response)
+            x_label, y_label = axes[0], axes[1]
+
+        if color is None:
+            color = "black"
+
+        if legend is None:
+            legend = True
+
+        ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
+
+        # levels = np.arange(0, 2., 0.025)
+        # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=colormap)
+        legends = []
+        for n, j in enumerate(Y[:, 0]):
+            ax.plot(X[n, :], Z.T[n, :], color=color, **kwargs)
+            legends.append("{} = {}".format(y_label, j))
+
+        if legend:
+            plt.legend(legends)
+
+        if title:
+            ttl = [i for i in zip(slice_at.keys(), ttl_values)]
+            ttl = ", ".join(["=".join(i) for i in ttl])
+            if ttl:
+                ax.set_title("$" + response + "$" + " for : " + "$" + ttl + "$")
+        ax.set_xlabel("$" + x_label + "$")
+        ax.set_ylabel("$" + response + "$")
+        ax.grid()
+
+        return fig
+
+    def surf_3d(self, slice_at, response, transpose=False, fig=None, sbplt=None, title=None, scale=None, colormap=None):
         """
         Surface plot.
 
@@ -405,6 +596,9 @@ class FactDB:
         if title is None:
             title = True
 
+        if colormap is None:
+            colormap = plt.cm.inferno
+
         axes = [key for key in self.dimensions._fields if key not in slice_at.keys()]
 
         if transpose:
@@ -422,7 +616,7 @@ class FactDB:
             X.astype(np.float) * scale[0],
             Y.astype(np.float) * scale[1],
             Z.T * scale[2],
-            cmap=plt.cm.inferno
+            cmap=colormap
         )
         # plt.clabel(sbplt, inline=1, fontsize=10)
         ttl = [i for i in zip(slice_at.keys(), ttl_values)]

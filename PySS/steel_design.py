@@ -415,6 +415,10 @@ class StructProps:
                  lenca_new=None,
                  n_cr_shell=None,
                  n_cr_shell_new=None,
+                 sigma_b_rk_shell=None,
+                 sigma_b_rk_shell_new=None,
+                 n_b_rk_shell=None,
+                 n_b_rk_shell_new=None,
                  sigma_b_rd_shell=None,
                  sigma_b_rd_shell_new=None,
                  n_b_rd_shell=None,
@@ -435,6 +439,10 @@ class StructProps:
         self.lenca_new = lenca_new
         self.n_cr_shell = n_cr_shell
         self.n_cr_shell_new = n_cr_shell_new
+        self.sigma_b_rk_shell = sigma_b_rk_shell
+        self.sigma_b_rk_shell_new = sigma_b_rk_shell_new
+        self.n_b_rk_shell = n_b_rk_shell
+        self.n_b_rk_shell_new = n_b_rk_shell_new
         self.sigma_b_rd_shell = sigma_b_rd_shell
         self.sigma_b_rd_shell_new = sigma_b_rd_shell_new
         self.n_b_rd_shell = n_b_rd_shell
@@ -1222,9 +1230,8 @@ def sigma_x_rk(
     
         # Buckling stress
         sigma_rk = chi_shell * f_y_k
-        sigma_rd_shell = sigma_rk
     else:
-        sigma_rd_shell = f_y_k
+        sigma_rk = f_y_k
     
     # flex buckling
     r_o = radius + thickness / 2.
@@ -1232,7 +1239,7 @@ def sigma_x_rk(
     moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
     area = 2 * np.pi * radius * thickness
     chi = chi_flex(length, area, moi, f_y_k, b_curve="c", kapa_bc=flex_kapa)
-    sigma_rd = sigma_rd_shell * chi
+    sigma_rd = sigma_rk * chi
 
     # Return value
     return sigma_rd
@@ -1340,9 +1347,8 @@ def sigma_x_rk_new(
     
         # Buckling stress
         sigma_rk = chi_shell * f_y_k
-        sigma_rd_shell = sigma_rk / gamma_m1
     else:
-        sigma_rd_shell = f_y_k
+        sigma_rk = f_y_k
 
     # flex buckling
     r_o = radius + thickness / 2.
@@ -1350,7 +1356,7 @@ def sigma_x_rk_new(
     moi = np.pi * (r_o ** 4 - r_i ** 4) / 4.
     area = 2 * np.pi * radius * thickness
     chi = chi_flex(length, area, moi, f_y_k, b_curve="c", kapa_bc=flex_kapa)
-    sigma_rd = sigma_rd_shell * chi
+    sigma_rd = sigma_rk * chi
 
     # Return value
     return sigma_rd
@@ -1488,7 +1494,7 @@ def sigma_x_rd_new(
     if flex_kapa is None:
         flex_kapa = 1.
 
-    sigma_xx_rd = sigma_x_rk(
+    sigma_xx_rd = sigma_x_rk_new(
         thickness,
         radius,
         length,

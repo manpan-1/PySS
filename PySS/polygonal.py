@@ -80,8 +80,8 @@ class PolygonalColumn:
             Measured yield stress. Default uses the nominal value.
 
         """
-        if f_y_real is None:
-            f_y_real = f_y_nominal
+        # if f_y_real is None:
+        #     f_y_real = f_y_nominal
 
         if [i is None for i in [r_circle, p_class, thickness]].count(True) > 1:
             print('Not enough info. Two out of the three optional arguments {r_circle, p_class, thickness}'
@@ -223,11 +223,13 @@ class PolygonalColumn:
 
         """
         if fh:
-
             self.experiment_data = TestData.from_file(fh)
             self.experiment_data.specimen_length = self.theoretical_specimen.geometry.length
             self.experiment_data.cs_area = self.theoretical_specimen.cs_props.area
-            self.experiment_data.f_yield = self.theoretical_specimen.material.f_y_real
+            if self.theoretical_specimen.material.f_y_real is None:
+                self.experiment_data.f_yield = self.theoretical_specimen.material.f_y_nominal
+            else:
+                self.experiment_data.f_yield = self.theoretical_specimen.material.f_y_real
             self.experiment_data.process_data()
         else:
             self.experiment_data = TestData()
@@ -322,7 +324,9 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         if f_y_real is None:
-            f_y_real = f_y_nominal
+            f_y = f_y_nominal
+        else:
+            f_y = f_y_real
 
         # Create material
         material = sd.Material(210000., 0.3, f_y_nominal, f_y_real)
@@ -355,7 +359,7 @@ class TheoreticalSpecimen(sd.Part):
 
         # Effective cross secion area
         corner_area = 2 * np.pi * r_b * thickness
-        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y_nominal) + corner_area
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
 
         # Gather all cross sectional properties in an appropriate class
         cs_props = sd.CsProps(
@@ -422,10 +426,10 @@ class TheoreticalSpecimen(sd.Part):
         n_cr_plate = cs_props.area * sigma_cr_plate
 
         # Axial compression resistance, Npl (acc. to EC3-1-5)
-        n_pl_rd = cs_props.a_eff * f_y_nominal
+        n_pl_rd = cs_props.a_eff * f_y
 
         # Buckling load
-        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_y_nominal, "d")
+        n_b_rd = sd.n_b_rd(geometry.length, cs_props.a_eff, cs_props.moi_1, f_y, "d")
 
         # Buckling stress (account for both flex and local)
         sigma_b_rd_plate = n_b_rd / cs_props.area
@@ -445,9 +449,17 @@ class TheoreticalSpecimen(sd.Part):
         n_cr_shell = sd.n_cr_shell(thickness, r_cyl, length)
         n_cr_shell_new = sd.n_cr_shell_new(thickness, r_cyl, length)
 
+        # Characteristic compression stress of equivalent cylindrical shell (acc. to EC3-1-6)
+        sigma_b_rk_shell = sd.sigma_x_rk(thickness, r_cyl, length, f_y, fab_quality=fab_class)
+        sigma_b_rk_shell_new = sd.sigma_x_rk_new(thickness, r_cyl, length, f_y, fab_quality=fab_class)
+
+        # Characteristic compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
+        n_b_rk_shell = cs_props.area * sigma_b_rk_shell
+        n_b_rk_shell_new = cs_props.area * sigma_b_rk_shell_new
+
         # Compression stress of equivalent cylindrical shell (acc. to EC3-1-6)
-        sigma_b_rd_shell = sd.sigma_x_rd(thickness, r_cyl, length, f_y_nominal, fab_quality=fab_class)
-        sigma_b_rd_shell_new = sd.sigma_x_rd_new(thickness, r_cyl, length, f_y_nominal, fab_quality=fab_class)
+        sigma_b_rd_shell = sd.sigma_x_rd(thickness, r_cyl, length, f_y, fab_quality=fab_class)
+        sigma_b_rd_shell_new = sd.sigma_x_rd_new(thickness, r_cyl, length, f_y, fab_quality=fab_class)
 
         # Compression resistance of equivalent cylindrical shell (acc. to EC3-1-6)
         n_b_rd_shell = cs_props.area * sigma_b_rd_shell
@@ -469,6 +481,10 @@ class TheoreticalSpecimen(sd.Part):
             lenca_new=lenca_new,
             n_cr_shell=n_cr_shell,
             n_cr_shell_new=n_cr_shell_new,
+            sigma_b_rk_shell=sigma_b_rk_shell,
+            sigma_b_rk_shell_new=sigma_b_rk_shell_new,
+            n_b_rk_shell=n_b_rk_shell,
+            n_b_rk_shell_new=n_b_rk_shell_new,
             sigma_b_rd_shell=sigma_b_rd_shell,
             sigma_b_rd_shell_new=sigma_b_rd_shell_new,
             n_b_rd_shell=n_b_rd_shell,
@@ -519,7 +535,10 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y_nominal)
+        if f_y_real is None:
+            epsilon = np.sqrt(235. / f_y_nominal)
+        else:
+            epsilon = np.sqrt(235. / f_y_real)
 
         # Radius of the equal perimeter cylinder
         #r_circle = (n_sides * thickness / np.pi) * ((p_classification * epsilon / 2) + arc_to_thickness * np.tan(np.pi / n_sides))
@@ -576,7 +595,10 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y_nominal)
+        if f_y_real is None:
+            epsilon = np.sqrt(235. / f_y_nominal)
+        else:
+            epsilon = np.sqrt(235. / f_y_real)
 
         # Calculate the thickness
         thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
@@ -633,7 +655,10 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y_nominal)
+        if f_y_real is None:
+            epsilon = np.sqrt(235. / f_y_nominal)
+        else:
+            epsilon = np.sqrt(235. / f_y_real)
 
         # Thickness
         thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
@@ -691,7 +716,6 @@ class TheoreticalSpecimen(sd.Part):
 
         """
 
-
         thickness = area / (2 * np.pi *r_cyl)
 
         return cls.from_geometry(
@@ -745,6 +769,12 @@ class TheoreticalSpecimen(sd.Part):
 
 
         """
+
+        if f_y_real is None:
+            f_y = f_y_nominal
+        else:
+            f_y = f_y_real
+
         # Bending radius
         r_b = a_b * thickness
 
@@ -770,10 +800,10 @@ class TheoreticalSpecimen(sd.Part):
                     1 - 3 * alfa + 4 * alfa ** 2 - 2 * alfa ** 3)
         # Effective cross secion area
         corner_area = 2 * np.pi * r_b * thickness
-        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y_nominal) + corner_area
+        a_eff = n_sides * sd.calc_a_eff(thickness, cccc, f_y) + corner_area
 
         # Calculate column length for the given flexural slenderness.
-        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y_nominal))
+        length = lambda_flex * np.pi * np.sqrt(210000. * moi / (a_eff * f_y))
 
         return cls.from_geometry(
             n_sides,
@@ -828,7 +858,10 @@ class TheoreticalSpecimen(sd.Part):
         """
 
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y_nominal)
+        if f_y_real is None:
+            epsilon = np.sqrt(235. / f_y_nominal)
+        else:
+            epsilon = np.sqrt(235. / f_y_real)
 
         # Calculate the thickness
         thickness = r_cyl / ((n_sides * p_classification * epsilon / (2 * np.pi)) + a_b)
@@ -885,7 +918,10 @@ class TheoreticalSpecimen(sd.Part):
 
         """
         # Epsilon for the material
-        epsilon = np.sqrt(235. / f_y_nominal)
+        if f_y_real is None:
+            epsilon = np.sqrt(235. / f_y_nominal)
+        else:
+            epsilon = np.sqrt(235. / f_y_real)
 
         # Thickness
         thickness = np.sqrt(area / (n_sides * p_classification * epsilon + 2 * np.pi * a_b))
@@ -903,6 +939,23 @@ class TheoreticalSpecimen(sd.Part):
             a_b=3,
             f_y_real=f_y_real
         )
+
+    @staticmethod
+    def behaviour_limit(fy, uu):
+        kapa = (1193 - fy) / 50
+        zeta = 364e3*uu**2-5e3*uu+21
+        ksi = -zeta*kapa+27
+
+        return(ag.Line2D.from_line_coeff(-zeta, 1, -ksi))
+
+    @staticmethod
+    def plate_behaviour(nv, pc, fy, uu):
+
+        kapa = (1193 - fy) / 50
+        zeta = 364e3*uu**2-5e3*uu+21
+        ksi = -zeta*kapa+27
+
+        return(pc-zeta*nv > ksi)
 
 
 class RealSpecimen:
@@ -1699,7 +1752,6 @@ def main(
                 fab_class,
                 thickness=thickness_nom[i],
                 p_class=p_class[i],
-                f_y_real=f_y_real[i]
             )
     else:
         for i in range(9):
