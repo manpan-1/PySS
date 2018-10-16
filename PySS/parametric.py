@@ -12,9 +12,10 @@ from mpl_toolkits.mplot3d import Axes3D
 from labellines import labelLine, labelLines
 # from cycler import cycler
 
+plt = matplotlib.pyplot
+mlines = matplotlib.lines
 matplotlib.rcParams.update({'font.size': 11})
 matplotlib.rcParams.update({'axes.titlesize': 11})
-plt = matplotlib.pyplot
 plt.rc('text', usetex=True)
 #
 # # Latex setup for plotting with titles and labels.
@@ -171,7 +172,18 @@ class FactDB:
         return (self.dimensions.index(self.dimensions.__getattribute__(attrname)))
 
     #TODO: docstring
-    def plt_contours(self, slice_at, response, subplots_of=None, colorbar=True, transpose_sbplts=False, colormap=None):
+    def plt_contours(
+            self,
+            slice_at,
+            response,
+            subplots_of=None,
+            colorbar=True,
+            transpose_sbplts=False,
+            colormap=None,
+            color_reverse=False,
+            vminmax=None,
+            **kargs
+    ):
         """
         Figure with multiple subplots.
 
@@ -199,7 +211,10 @@ class FactDB:
                 x_subplots, y_subplots = y_subplots, x_subplots
 
         if colormap is None:
-            colormap = plt.cm.inferno
+            if color_reverse:
+                colormap = plt.cm.inferno_r
+            else:
+                colormap = plt.cm.inferno
 
         sbplt = str(y_subplots) + str(x_subplots)
 
@@ -255,8 +270,12 @@ class FactDB:
             crrnt_slice[i] = slice_at[i]
 
         # Find max and min from all subplots
-        vmax = self.get_slice(slice_at, response).max()
-        vmin = self.get_slice(slice_at, response).min()
+        if vminmax is None:
+            vmax = self.get_slice(slice_at, response).max()
+            vmin = self.get_slice(slice_at, response).min()
+        else:
+            vmin = vminmax[0]
+            vmax = vminmax[1]
 
         #crrnt_slice[subplots_of] = None
         # Loop through subplots and plot
@@ -271,7 +290,9 @@ class FactDB:
                 sbplt=int(sbplt + str(crrnt_sbplt + 1)),
                 vmin=vmin,
                 vmax=vmax,
-                colormap=colormap
+                colormap=colormap,
+                color_reverse=color_reverse,
+                **kargs
             )
 
         for n, i in enumerate(fig.axes):
@@ -307,7 +328,9 @@ class FactDB:
             colorbar=False,
             title=None,
             colormap=None,
-            **kwargs
+            color_reverse=False,
+            clabel_decimals=None,
+            **kargs
     ):
         """
         Contour plot.
@@ -352,17 +375,33 @@ class FactDB:
             X, Y = np.meshgrid(self.dimensions[self.get_idx(axes[0])], self.dimensions[self.get_idx(axes[1])])
             Z = self.get_slice(slice_at, response)
             x_label, y_label = axes[0], axes[1]
+        if color_reverse:
+            linemap = plt.cm.gray
+        else:
+            linemap = plt.cm.gray_r
 
         if colormap is None:
-            colormap = plt.cm.inferno
+            if color_reverse:
+                colormap = plt.cm.inferno_r
+            else:
+                colormap = plt.cm.inferno
+
 
         ttl_values = [self.dimensions[self.get_idx(i)][slice_at[i]] for i in slice_at.keys()]
 
         # levels = np.arange(0, 2., 0.025)
         # sbplt = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, vmin=0.4, vmax=1., levels=levels, cmap=colormap)
-        contour1 = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=plt.cm.gray_r, linewidths=1, **kwargs)
-        contour2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=colormap, **kwargs)
+        contour1 = ax.contour(X.astype(np.float), Y.astype(np.float), Z.T, cmap=linemap, linewidths=1, **kargs)
+        contour2 = ax.contourf(X.astype(np.float), Y.astype(np.float), Z.T, cmap=colormap, **kargs)
+
+        if not(clabel_decimals is None):
+            if clabel_decimals == 0:
+                contour1.levels = [str(int(val)) for val in contour1.levels]
+            else:
+                contour1.levels = [str(round(val, clabel_decimals)) for val in contour1.levels]
+
         plt.clabel(contour1, inline=1)
+
         if colorbar:
             cb_ax = fig.add_axes([0.86, 0.18, 0.02, 0.67])
             plt.colorbar(contour2, cax=cb_ax)
@@ -440,7 +479,15 @@ class FactDB:
         legends = []
 
         for n, j in enumerate(Y[:, 0]):
-            ax.plot(np.asfarray(X[0, :], float), Z.T[n, :], color=color, label=j, **kwargs)
+            ax.plot(
+                np.asfarray(X[0, :], float),
+                Z.T[n, :],
+                color=color,
+                label=j,
+                linestyle=list(mlines.lineStyles.keys())[n],
+                **kwargs
+            )
+
             legends.append("{} = {}".format(y_label, j))
 
         if labellines:
